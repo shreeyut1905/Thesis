@@ -65,7 +65,9 @@ outputs in `~/mech_apps/results/{oat,pde}`.
   (`run_eval_oat.sh` sets it).
 - `tab:app-oat` uses OAT's "@ 1" statistics from `Compliance_{method}_d{delta}.pkl["stats"]`: failure = (1 − `Pass @ 1`)·100,
   CE* = `Avg CE @ 1`, median = `Median CE @ 1`, VFE* = `Avg VFE @ 1`; Evals = 2 × mean `nfe` of the shard JSONs (CFG).
-  `applications/make_figs.py {oat,oat_dist,schedules,pde_tradeoff}` regenerates the `app_*` figures from these results.
+  `applications/make_figs.py all` regenerates every `app_*` figure from these results (drawn at the 6.0 in text width,
+  STIX font, KalSea blue / ReSPect orange in every figure). The OAT examples are hand-picked non-failed problems; their
+  caption states the selection criterion, so keep it in sync if the problem list changes.
 - **DiffusionPDE** (bounded Navier–Stokes, NeurIPS 2024): `pde_cache.py --case {1,2} --problem {forward,inverse}`,
   2000 guided Heun steps; its checkpoints are pickles.
 - Invariants the drivers were validated against and must keep: with caching off the loop is bitwise identical to the
