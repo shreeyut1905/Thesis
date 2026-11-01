@@ -73,15 +73,105 @@ Before producing any result, both cached samplers were checked against exact inv
 \end{itemize}
 
 %% ------------------------------------------------------------------------------------------------
+\section{Error and cost of a cache inside a sampler}\label{sec:app-theory}
+
+The media studies of \cref{ch:respect,ch:kalsea} measured the error of a cache only at the end of sampling. For the engineering samplers it is useful to see how an error made on a skipped step travels through the sampler, how the corrector removes it, and what a cache can save at best. This section collects four short analyses that are used to interpret the results.
+
+\subsection{DDIM with \texorpdfstring{$v$}{v}-prediction is a rotation}\label{sec:app-ddim-rotation}
+Write the signal level of the variance-preserving schedule as an angle, $\bar\alpha_t = \cos^2\phi_t$ with $\phi_t\in[0,\pi/2]$, so that $x_t = \cos\phi_t\,x_0 + \sin\phi_t\,\epsilon$ and the $v$-target is $v = \cos\phi_t\,\epsilon - \sin\phi_t\,x_0$. Inverting this pair gives the predictions used by DDIM,
+\begin{equation}
+  \hat x_0 = \cos\phi_t\,x_t - \sin\phi_t\,v, \qquad \hat\epsilon = \sin\phi_t\,x_t + \cos\phi_t\,v ,
+\end{equation}
+and inserting them into the DDIM update \cref{eq:bg-ddim} towards the angle $\phi_{t'}<\phi_t$ yields, with $\Delta_t = \phi_t-\phi_{t'}$,
+\begin{equation}\label{eq:app-rotation}
+  x_{t'} = \big(\cos\phi_{t'}\cos\phi_t + \sin\phi_{t'}\sin\phi_t\big)x_t + \big(\sin\phi_{t'}\cos\phi_t - \cos\phi_{t'}\sin\phi_t\big)v
+         = \cos\Delta_t\; x_t - \sin\Delta_t\; v .
+\end{equation}
+A deterministic DDIM step with $v$-prediction is therefore a rotation by the angle $\Delta_t$ in the plane spanned by the current sample and the predicted velocity, and with classifier-free guidance the same holds for the guided output $v_g = u+g(c-u)$. Three consequences matter for caching.
+\begin{itemize}
+  \item An error $\delta v$ in the network output on one step perturbs the next sample by exactly $-\sin\Delta_t\,\delta v$; the injected error is weighted by the angular step size. With zero terminal SNR the angles run from $\pi/2$ to $0$, so the weights sum to roughly $\sum_t \sin\Delta_t \approx \pi/2$ for fine schedules.
+  \item The update is affine in $v$, so PCGS can replay a gap exactly with corrected outputs.
+  \item The continuation rule of KalSea, \cref{eq:kalsea-cont}, becomes $v'_b = \Out\big(\Emb(x'_b)+r_b\big) - \cot\Delta_b\,(x'_b - x_b)$: substituting into \cref{eq:app-rotation} gives $x_{b'} = \cos\Delta_b\,x'_b - \sin\Delta_b\,\Out(\Emb(x'_b)+r_b)$, the step from the corrected sample.
+\end{itemize}
+
+\subsection{How a filler error propagates}\label{sec:app-gronwall}
+Consider a one-step sampler $x_{i+1} = \Psi_i(x_i, v_i)$ whose update satisfies $\|\partial\Psi_i/\partial x\|\le 1+h_iL_x$ and $\|\partial\Psi_i/\partial v\|\le h_i$, where $h_i$ is the step size (for Euler, $\Psi_i = x_i + h_iv_i$; for DDIM, $h_i=\sin\Delta_i$), and let the network output be $L_v$-Lipschitz in its input. Let $e_i = \|\tilde x_i - x_i\|$ be the deviation of the cached trajectory from the uncached one, and $\delta_i$ the filler error on step $i$ ($\delta_i=0$ on computed steps). Then $e_{i+1}\le(1+h_iL)e_i + h_i\|\delta_i\|$ with $L = L_x+L_v$, and the discrete Grönwall inequality gives
+\begin{equation}\label{eq:app-gronwall}
+  e_N \;\le\; \sum_{i\in\mathcal S} h_i\,\|\delta_i\|\,\exp\Big(L\sum_{k>i}h_k\Big),
+\end{equation}
+where $\mathcal S$ is the set of skipped steps. Two observations follow. First, errors are amplified by at most $e^{L\sum h}$ and accumulate \emph{additively} over the skipped steps; nothing in an open-loop cache ever removes them. Second, for reuse the filler error grows linearly with the distance to the last computed step (\cref{eq:respect-reuse}), $\|\delta_i\|\le L_r (i-a)\bar h$, so the contribution of one gap of length $\ell$ with uniform steps $\bar h$ is
+\begin{equation}
+  \sum_{i=a+1}^{a+\ell}\bar h\,L_r(i-a)\bar h \;=\; \tfrac12 L_r\,\bar h^2\,\ell(\ell+1),
+\end{equation}
+\emph{quadratic} in the gap length. A forecaster reduces $\|\delta_i\|$; PCGS replaces the forecasts of a closed gap by smoothed residuals and re-integrates the gap, so that in \cref{eq:app-gronwall} the open-loop filler errors $\delta_i$ of every closed gap are replaced by the (smaller) errors of the smoothed residuals $\tilde r_i - r_i$, and only the currently open gap still carries open-loop errors.
+
+\subsection{Guidance gradients on skipped steps}\label{sec:app-guidance-error}
+DiffusionPDE's denoiser is preconditioned as in EDM \citep{karras2022edm},
+\begin{equation}
+\begin{gathered}
+  D(x;\sigma) = c_{\mathrm{skip}}(\sigma)\,x + c_{\mathrm{out}}(\sigma)\,\mathcal N\big(c_{\mathrm{in}}(\sigma)\,x;\sigma\big),\\
+  c_{\mathrm{skip}} = \frac{\sigma_d^2}{\sigma^2+\sigma_d^2},\qquad c_{\mathrm{out}} = \frac{\sigma\sigma_d}{\sqrt{\sigma^2+\sigma_d^2}},\qquad c_{\mathrm{in}} = \frac{1}{\sqrt{\sigma^2+\sigma_d^2}},
+\end{gathered}
+\end{equation}
+with the U-Net $\mathcal N$ and $\sigma_d=0.5$. The guidance step uses $\nabla_x\mathcal L(D(x;\sigma)) = (\partial D/\partial x)\tr\nabla_D\mathcal L$. On a skipped step the cache evaluates $\hat{\mathcal N}(z) = \Out(\Emb(z)+\hat r)$ with a constant $\hat r$, so the two Jacobians differ only in the network term:
+\begin{equation}
+\begin{gathered}
+  \Big\|\nabla_x\mathcal L - \widehat{\nabla_x\mathcal L}\Big\| \;\le\; c_{\mathrm{out}}(\sigma)\,c_{\mathrm{in}}(\sigma)\;\big\|J_{\mathcal N} - J_{\hat{\mathcal N}}\big\|\;\|\nabla_D\mathcal L\|,\\
+  c_{\mathrm{out}}(\sigma)\,c_{\mathrm{in}}(\sigma) = \frac{\sigma\sigma_d}{\sigma^2+\sigma_d^2}\;\le\;\frac12 .
+\end{gathered}
+\end{equation}
+The prefactor peaks at $\sigma=\sigma_d$ and vanishes for $\sigma\to0$ and $\sigma\to\infty$. With $\rho=7$ and 2000 steps, the PDE loss is switched on at step 1600, where $\sigma\approx0.085$ and the prefactor has fallen to about $0.17$, a third of its maximum; at $\sigma_{\min}=0.002$ it is $0.004$. Skipping therefore distorts the guidance most at intermediate noise levels, where the observation loss shapes the large-scale flow, and least in the final phase, where the skip connection $c_{\mathrm{skip}}x$ dominates the denoiser.
+
+\subsection{Cost model}\label{sec:app-cost}
+Let $c_E$, $c_F$ and $c_O$ be the costs of $\Emb$, the block stack and $\Out$ (including the backward passes if gradients are needed), $c_g$ the cost of the gate and the filler, and $\rho_c$ the fraction of computed steps. The speedup over the uncached sampler is
+\begin{equation}\label{eq:app-amdahl}
+  \begin{gathered}
+  S(\rho_c) = \frac{c_E+c_F+c_O}{c_E+c_O+c_g+\rho_c\,c_F} = \frac{1}{\kappa+\gamma+\rho_c\,(1-\kappa)},\\
+  \kappa = \frac{c_E+c_O}{T},\qquad \gamma = \frac{c_g}{T},\qquad T = c_E+c_F+c_O ,
+  \end{gathered}
+\end{equation}
+an Amdahl-type law: the speedup in network calls, $1/\rho_c$, is approached only if the always-executed part $\kappa+\gamma$ is negligible, and no budget can exceed $1/(\kappa+\gamma)$. For OAT, $\Emb$ and $\Out$ are single convolutions on a $64\times64$ map and $\kappa$ is small. For DiffusionPDE, $\Emb$ contains a full-resolution residual block and the guidance requires the backward pass through $\Emb$ and $\Out$ on every step, so $\kappa$ is larger and the time saved is smaller than the calls saved.
+
+%% ------------------------------------------------------------------------------------------------
 \section{Application I: structural topology optimisation with OAT}\label{sec:app-oat}
 
-\subsection{Problem}
-Given a design domain $\Omega$ discretised into finite elements, a set of supports and point loads $\mathbf f$, and a target volume fraction $V^\star$, minimum-compliance topology optimisation seeks a density field $\rho_e\in[0,1]$ per element that solves
+\subsection{Problem: minimum-compliance design}
+\paragraph{Linear elasticity.} A two-dimensional design domain $\Omega$ is loaded by point forces $\mathbf t$ and supported on a part $\Gamma_D$ of its boundary. Under small strains, the displacement field $\mathbf u$ satisfies the equilibrium equations with a linear-elastic constitutive law,
+\begin{equation}\label{eq:app-elasticity}
+  \nabla\cdot\bm\sigma = \mathbf 0 \ \text{in}\ \Omega, \qquad \bm\sigma = \mathbf D\,\bm\varepsilon(\mathbf u), \qquad \bm\varepsilon(\mathbf u) = \tfrac12\big(\nabla\mathbf u + \nabla\mathbf u\tr\big), \qquad \mathbf u = \mathbf 0\ \text{on}\ \Gamma_D ,
+\end{equation}
+and for plane stress the elasticity matrix (in Voigt notation) is
+\begin{equation}
+  \mathbf D = \frac{E}{1-\nu^2}\begin{bmatrix}1 & \nu & 0\\ \nu & 1 & 0\\ 0 & 0 & \tfrac{1-\nu}{2}\end{bmatrix}.
+\end{equation}
+OAT's finite-element code uses plane stress with $E=1$, $\nu=1/3$ and unit thickness on a structured mesh with one square element per pixel. The weak form, find $\mathbf u$ with $\int_\Omega\bm\varepsilon(\mathbf w)\tr\mathbf D\,\bm\varepsilon(\mathbf u)\,d\Omega = \mathbf w\tr\mathbf t$ for all admissible $\mathbf w$, discretised with four-node quadrilateral elements, gives the linear system
+\begin{equation}
+  \mathbf K\,\mathbf u = \mathbf f, \qquad \mathbf K = \sum_e \mathbf k_e, \qquad \mathbf k_e = \int_{\Omega_e}\mathbf B_e\tr\mathbf D\,\mathbf B_e\,d\Omega ,
+\end{equation}
+with the strain--displacement matrix $\mathbf B_e$ of element $e$.
+
+\paragraph{Compliance.} The compliance is the work done by the external loads,
+\begin{equation}
+  C = \mathbf f\tr\mathbf u = \mathbf u\tr\mathbf K\,\mathbf u = 2\,U ,
+\end{equation}
+twice the stored strain energy $U$. A stiffer structure deflects less under the same loads, so minimising compliance maximises the global stiffness. In topology optimisation each element carries a density $\rho_e\in[0,1]$ and the SIMP interpolation \citep{bendsoe1988generating,sigmund2001} scales its stiffness, $\mathbf k_e(\rho_e) = E(\rho_e)\,\mathbf k_0$ with $E(\rho_e) = E_{\min}+\rho_e^{\,p}(E_0-E_{\min})$. The penalisation $p$ (3 in OAT's code) makes intermediate densities uneconomical and drives the design towards solid--void layouts. The problem
 \begin{equation}\label{eq:app-to}
   \min_{\bm\rho}\; C(\bm\rho) = \mathbf f\tr\mathbf u(\bm\rho)
-  \quad\text{s.t.}\quad \mathbf K(\bm\rho)\,\mathbf u = \mathbf f, \qquad \frac{1}{|\Omega|}\sum_e \rho_e v_e = V^\star, \qquad 0\le\rho_e\le1,
+  \quad\text{s.t.}\quad \mathbf K(\bm\rho)\,\mathbf u = \mathbf f, \qquad V(\bm\rho)=\frac{1}{|\Omega|}\sum_e \rho_e v_e = V^\star, \qquad 0\le\rho_e\le1
 \end{equation}
-where $\mathbf K(\bm\rho)$ is the global stiffness matrix assembled with the SIMP interpolation $E(\rho_e) = E_{\min}+\rho_e^p(E_0-E_{\min})$ \citep{bendsoe1988generating,sigmund2001,andreassen2011efficient}. Classical solvers need a finite-element analysis in each of tens to hundreds of iterations. OAT replaces the iterations by a single generative pass that predicts a near-optimal layout directly from the problem description.
+is self-adjoint: the adjoint of $\mathbf u$ is $-\mathbf u$, so the sensitivities follow from one solve,
+\begin{equation}\label{eq:app-sens}
+  \frac{\partial C}{\partial\rho_e} = -\,\mathbf u_e\tr\frac{\partial\mathbf k_e}{\partial\rho_e}\mathbf u_e = -\,p\,\rho_e^{\,p-1}(E_0-E_{\min})\;\mathbf u_e\tr\mathbf k_0\,\mathbf u_e \;\le 0 .
+\end{equation}
+Classical solvers \citep{andreassen2011efficient} iterate finite-element analyses, sensitivity filtering (OAT's code uses a density filter of radius 1.5 elements against checkerboards and mesh dependence) and an optimality-criteria or MMA update, typically for 100--200 iterations, which is the cost OAT avoids.
+
+\paragraph{Evaluation of a generated design.} OAT's evaluation thresholds the generated density at 0.5, assigns the void elements the stiffness ratio $10^{-6}$, solves $\mathbf K\mathbf u=\mathbf f$ with a sparse direct solver on the GPU, and compares the compliance with that of the SIMP-optimised ground truth evaluated in the same way. A \emph{failure} (CE $>100\%$, i.e.\ more than twice the optimal compliance) typically means that a load path is broken: if material connecting a load to the supports is missing, the load is carried only by the $10^{-6}$-stiff void and the compliance increases by orders of magnitude.
+
+\paragraph{Sensitivity of compliance to a cache-induced perturbation.} Near an optimum of \cref{eq:app-to}, the Karush--Kuhn--Tucker conditions with the Lagrangian $\mathcal L = C(\bm\rho) + \lambda\,(V(\bm\rho)-V^\star)$ require $\partial C/\partial\rho_e = -\lambda v_e/|\Omega|$ for every element with intermediate density. For a small perturbation $\delta\bm\rho$ of such a design, for instance one caused by caching, a first-order expansion therefore gives
+\begin{equation}\label{eq:app-kkt}
+  \delta C \;\approx\; \sum_e \frac{\partial C}{\partial\rho_e}\delta\rho_e \;=\; -\lambda\,\delta V \;+\; O\big(\|\delta\bm\rho\|^2\big) \quad\text{(intermediate densities)},
+\end{equation}
+while for elements at their bounds the KKT inequalities make $\delta C\ge-\lambda\,\delta V$ to first order. Perturbations that only redistribute material at constant volume thus change the compliance at second order, whereas removing material ($\delta V<0$) costs stiffness at first order with the ``price'' $\lambda$. This is why compliance and volume-fraction errors are reported together, and why small local differences between a cached and an uncached layout are benign unless they cut a load path. The argument is local: it assumes a near-optimal design, which the low median compliance error of OAT supports, and it does not cover the discrete changes caused by thresholding.
 
 \subsection{The OAT model}
 OAT \citep{nobari2025oat} consists of a resolution- and shape-agnostic \emph{neural-field autoencoder} (NFAE), whose implicit decoder renders a density field at any resolution and aspect ratio, and a \emph{conditional latent diffusion model} trained on OpenTO, a dataset of 2.2 million optimised structures. The diffusion model (\texttt{OpenTO/LDM}) is a diffusers U-Net on a $1\times64\times64$ latent with block widths 320, 640, 1280 and 1280, attention in the two lowest-resolution levels, and a \emph{problem encoder} that embeds the boundary conditions and loads (as point sets) and global problem descriptors such as the target volume fraction; the problem embedding is added to the timestep embedding. The released sampler is DDIM with $v$-prediction on a cosine schedule rescaled to zero terminal SNR \citep{lin2024zerosnr}. The decoded density field is evaluated by a GPU finite-element solver (pyEDGE) shipped with the code.
@@ -128,11 +218,34 @@ We follow the protocol of the OAT paper for its fully general OpenTO benchmark (
 %% ------------------------------------------------------------------------------------------------
 \section{Application II: flow past a cylinder with DiffusionPDE}\label{sec:app-pde}
 
-\subsection{Problem}
-Many fluid-mechanics problems are \emph{partially observed}: a few sensors measure the flow, and the full field is needed. DiffusionPDE \citep{huang2024diffusionpde} learns the joint distribution of a pair of fields $(a,u)$, an earlier and a later state of a flow, with a diffusion model, and solves \emph{forward} problems (observe $a$ sparsely, recover $u$) and \emph{inverse} problems (observe $u$ sparsely, recover $a$). For the bounded Navier--Stokes case used here, $a$ and $u$ are velocity-magnitude fields of the flow past a cylinder at two time instants on a $128\times128$ grid; 1\% of the grid points of the observed field are known at random, together with the cylinder region.
+\subsection{Problem: flow past a cylinder}
+\paragraph{Governing equations.} The flow of an incompressible Newtonian fluid with velocity $\mathbf u(\mathbf x,t)$ and pressure $p$ obeys the Navier--Stokes equations
+\begin{equation}\label{eq:app-ns}
+  \frac{\partial\mathbf u}{\partial t} + (\mathbf u\cdot\nabla)\mathbf u = -\frac{1}{\rho_f}\nabla p + \nu_f\,\nabla^2\mathbf u, \qquad \nabla\cdot\mathbf u = 0,
+\end{equation}
+with density $\rho_f$ and kinematic viscosity $\nu_f$, a no-slip condition $\mathbf u=\mathbf 0$ on the cylinder surface and an inflow velocity $U$ far upstream. In non-dimensional form the flow is governed by the Reynolds number $\mathrm{Re} = UD/\nu_f$, the ratio of inertial to viscous forces, with the cylinder diameter $D$.
+
+\paragraph{Physics of the wake.} Flow past a circular cylinder is a classical benchmark of fluid mechanics. At very low Reynolds numbers the flow stays attached; at moderate Re the boundary layer separates and a steady pair of recirculating eddies forms behind the cylinder; above a critical value of about $\mathrm{Re}\approx47$ the wake becomes unstable and sheds vortices alternately from the two sides, forming the K\'arm\'an vortex street, with a shedding frequency $f$ given by a Strouhal number $\mathrm{St}=fD/U\approx0.2$ over a wide range of Reynolds numbers. The resulting unsteady lift and drag forces are central to the design of chimneys, heat-exchanger tubes, risers and bridge cables. For field reconstruction the consequence is that the velocity field is smooth upstream but has steep gradients in the separating shear layers and an unsteady, phase-dependent structure in the wake, which is where the field is hardest to infer from sparse sensors.
+
+\paragraph{The reconstruction task.} DiffusionPDE \citep{huang2024diffusionpde} learns the joint distribution of a pair of fields $(a,u)$, two snapshots of the velocity magnitude $|\mathbf u|$ of such a flow at an earlier and a later time on a $128\times128$ grid, generated with a two-dimensional incompressible flow solver. In the \emph{forward} problem, 1\% of the grid points of the earlier field $a$ are observed at random together with the cylinder region, and the later field $u$ is to be recovered; in the \emph{inverse} problem, $u$ is observed sparsely and $a$ is recovered. Both are ill-posed without a prior, because 99\% of each field is unobserved; the diffusion model supplies the prior and the guidance enforces the data.
 
 \subsection{The DiffusionPDE sampler}
-The model is an EDM \citep{karras2022edm} DDPM++ U-Net trained on the joint two-channel field. Sampling uses 2000 Heun steps on the EDM schedule ($\sigma_{\max}=80$, $\sigma_{\min}=0.002$, $\rho=7$). After each step the latent is moved along the negative gradients of the observation losses and, during the last 20\% of the steps, of a finite-difference PDE residual, with the weights $\zeta$ of the released configuration; the gradients are taken with respect to the current latent through the network, in the manner of diffusion posterior sampling \citep{chung2023dps}. Each solution therefore costs 3999 network calls, each with a backward pass.
+\paragraph{Probability-flow ODE.} The model is an EDM \citep{karras2022edm} DDPM++ U-Net trained on the joint two-channel field $x=(a,u)$. With the noise level $\sigma$ as time variable, the probability-flow ODE and its score are
+\begin{equation}
+  \frac{dx}{d\sigma} = \frac{x - D(x;\sigma)}{\sigma}, \qquad \nabla_x\log p_\sigma(x) = \frac{D(x;\sigma)-x}{\sigma^2},
+\end{equation}
+and the sampler integrates the ODE from $\sigma_{\max}=80$ to $\sigma_{\min}=0.002$ over the schedule $\sigma_i = \big(\sigma_{\max}^{1/\rho}+\tfrac{i}{N-1}(\sigma_{\min}^{1/\rho}-\sigma_{\max}^{1/\rho})\big)^{\rho}$ with $\rho=7$ and $N=2000$, using Heun's second-order method: an Euler predictor $\tilde x_{i+1} = x_i + (\sigma_{i+1}-\sigma_i)d_i$ with $d_i = (x_i-D(x_i;\sigma_i))/\sigma_i$, followed by the trapezoidal corrector $x_{i+1} = x_i + (\sigma_{i+1}-\sigma_i)\tfrac12(d_i+\tilde d_{i+1})$.
+
+\paragraph{Guidance by the observations and the physics.} Given observations $y = M\odot x_{\mathrm{true}}$ with a binary sensor mask $M$, the goal is to sample the posterior $p(x\mid y)\propto p(y\mid x)\,p(x)$, whose score is $\nabla\log p_\sigma(x) + \nabla\log p(y\mid x_\sigma)$. The likelihood of the noisy sample is intractable; diffusion posterior sampling \citep{chung2023dps} approximates it through the denoised estimate, $p(y\mid x_\sigma)\approx p\big(y\mid D(x_\sigma;\sigma)\big)$, which turns the likelihood term into a gradient step on a data-misfit loss evaluated at $D(x;\sigma)$. DiffusionPDE adds a second, physics-based term. After each Heun step the sample is updated as
+\begin{equation}\label{eq:app-dps}
+  x_{i+1} \leftarrow x_{i+1} - \zeta_{\mathrm{obs}}\,\nabla_{x_i}\mathcal L_{\mathrm{obs}}\big(D(\cdot)\big) - \zeta_{\mathrm{pde}}\,\nabla_{x_i}\mathcal L_{\mathrm{pde}}\big(D(\cdot)\big),
+  \qquad \mathcal L_{\mathrm{obs}} = \big\|M\odot(\hat x - y)\big\|_2,
+\end{equation}
+where the gradient is taken with respect to the current sample through the network. For the bounded Navier--Stokes case, the released code uses a finite-difference residual on the interior grid points,
+\begin{equation}
+  \mathcal L_{\mathrm{pde}} = \frac{1}{128^2}\Big\|\tfrac12\big(u_{j+1,k}-u_{j-1,k}\big)+\tfrac12\big(u_{j,k+1}-u_{j,k-1}\big)\Big\|_2 ,
+\end{equation}
+applies only the observation losses during the first 80\% of the steps and, during the last 20\%, adds the PDE loss and reduces the observation weights by a factor of ten. Each solution therefore costs 3999 network calls, each with a backward pass, and the guidance gradient on every call depends on the network's Jacobian, which is what the analysis of \cref{sec:app-guidance-error} quantifies.
 
 \subsection{Experimental protocol}
 \begin{itemize}
@@ -143,7 +256,7 @@ The model is an EDM \citep{karras2022edm} DDPM++ U-Net trained on the joint two-
 \end{itemize}
 
 \subsection{Results}
-\Cref{tab:app-pde} summarises the 16 cached solutions. With KalSea at $\delta=0.01$, the number of network calls drops from 3999 to about 2300 ($1.7\times$ fewer), and at $\delta=0.02$ to about 1550 ($2.6\times$ fewer). On the forward problem of case 1, KalSea recovers the flow with 3.3\% error at both budgets, below the paper's mean of 3.9\% for the uncached sampler, and on the inverse problem it stays at 3.6--5.2\% for both cases. ReSPect, at the same thresholds (and within 3\% of the same number of network calls), is worse in every one of the eight comparisons, most clearly on the forward problem (9.2--16.8\% vs.\ 3.3--14.6\%). Unlike on the media models, where ReSPect's open-loop forecast was competitive, here the closed loop is essential: the gradient guidance on skipped steps is approximate, and KalSea's corrector re-integrates every gap with the full guided update, repairing the drift that both the forecast and the approximate guidance introduce. The hardest setting is forward case 2 at $\delta=0.02$, where KalSea's error rises to 14.6\%; the budget at which caching is safe therefore depends on the case, which motivates a gate that also accounts for the guidance (\cref{ch:conclusion}). \Cref{fig:app-pde-forward,fig:app-pde-inverse} show the recovered fields and their errors.
+\Cref{tab:app-pde} summarises the 16 cached solutions. With KalSea at $\delta=0.01$, the number of network calls drops from 3999 to about 2300 ($1.7\times$ fewer), and at $\delta=0.02$ to about 1550 ($2.6\times$ fewer). On the forward problem of case 1, KalSea recovers the flow with 3.3\% error at both budgets, below the paper's mean of 3.9\% for the uncached sampler, and on the inverse problem it stays at 3.6--5.2\% for both cases. ReSPect, at the same thresholds (and within 3\% of the same number of network calls), is worse in every one of the eight comparisons, most clearly on the forward problem (9.2--16.8\% vs.\ 3.3--14.6\%). Unlike on the media models, where ReSPect's open-loop forecast was competitive, here the closed loop is essential: the gradient guidance on skipped steps is approximate, and KalSea's corrector re-integrates every gap with the full guided update, repairing the drift that both the forecast and the approximate guidance introduce. The hardest setting is forward case 2 at $\delta=0.02$, where KalSea's error rises to 14.6\%; the budget at which caching is safe therefore depends on the case, which motivates a gate that also accounts for the guidance (\cref{ch:conclusion}). \Cref{fig:app-pde-forward,fig:app-pde-inverse} show the recovered fields and their errors. The error maps agree with the flow physics: away from the cylinder the field is smooth and all methods reproduce it, while the residual errors concentrate in the separated shear layers and the wake, where the velocity gradients are steepest and the sparse sensors constrain the unsteady structure least. ReSPect's open-loop errors are largest exactly there, and KalSea's corrector removes most of them. This is consistent with \cref{eq:app-gronwall}: on 2000 small steps the gaps are short (on average 1.1 steps at $\delta=0.01$ and 2.0 at $\delta=0.02$), but they are numerous, so open-loop errors accumulate over hundreds of gaps unless each gap is corrected.
 
 \begin{table}[t]
   \centering
