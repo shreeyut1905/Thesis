@@ -27,6 +27,7 @@ Requires a TeX Live installation with `newtx`, `tex-gyre`, `algorithmicx`, `list
 ## Status
 
 Chapter 6 (applications): the DiffusionPDE results (bounded Navier-Stokes, forward and inverse, both released cases,
-ReSPect and KalSea at two budgets) are in. The OAT evaluation (full 5000-problem OpenTO test split, 10 samples each,
-OAT's own FEA) is still running; its table entries are marked `[TBD]` (macro `\TBD` in `main.tex`). Baseline rows of the
-uncached models are copied from the original papers.
+ReSPect and KalSea at two budgets) are in. The OAT results (full 5000-problem OpenTO test split, 10 samples each,
+OAT's own FEA) are in for KalSea at both budgets and ReSPect at δ = 0.3; ReSPect at δ = 0.15 and the worked-example
+figure are still marked `[TBD]` (macro `\TBD` in `main.tex`) while its evaluation finishes. Baseline rows of the
+uncached models are copied from the original papers. Result figures are produced by `applications/make_figs.py`.

@@ -186,12 +186,20 @@ We follow the protocol of the OAT paper for its fully general OpenTO benchmark (
 \end{itemize}
 
 \subsection{Results}
-\Cref{tab:app-oat} reports the full evaluation and \cref{fig:app-oat-example} shows the first two test problems.
+\Cref{tab:app-oat} reports the full evaluation, \cref{fig:app-oat-dist} the distributions of the compliance and volume-fraction errors behind it, \cref{fig:app-schedules}(a) the steps chosen by the gate, and \cref{fig:app-oat-example} the first two test problems.
+
+\paragraph{Budget.} At $\delta=0.15$ the gate computes on average 13.9 of the 20 DDIM steps (27.9 instead of 40 U-Net evaluations, $1.43\times$ fewer), and at $\delta=0.3$ exactly 10 of 20 ($2\times$ fewer). The schedule is nearly the same for every problem (\cref{fig:app-schedules}a): the first five steps, during which the coarse layout of the structure forms from noise, are always computed, and skipping is concentrated in the middle of the trajectory, where at $\delta=0.3$ a gap of four steps (steps 10--13) is typical. Because the gate is shared and its input changes little between the two fillers, ReSPect and KalSea compute exactly the same steps on 98\% ($\delta=0.15$) and 96\% ($\delta=0.3$) of the problems, so the comparison is at matched compute.
+
+\paragraph{Accuracy.} With $1.43\times$ fewer evaluations KalSea stays close to the uncached model reported in the paper: 40.16\% failures against 39.22\%, a CE$^*$ of 8.47\% against 8.17\%, and a median CE$^*$ of 3.89\% against 3.75\%. At $\delta=0.15$ ReSPect reaches \TBD. At half the evaluations ($\delta=0.3$) ReSPect still reaches 40.92\% failures, 8.62\% CE$^*$ and a 3.83\% median, while KalSea is clearly worse at the same budget, with 43.78\% failures, 10.42\% CE$^*$ and a 5.31\% median. To judge these differences, the failure rates were bootstrapped over the 5000 problems: each has a standard error of about 0.6 percentage points (failures are strongly correlated within a problem: about 20\% of the problems fail in all ten samples, for every method), and the paired difference between KalSea and ReSPect at $\delta=0.3$, $2.86\pm0.16$ points, is therefore significant. Differences of about one point from the copied baseline, whose run-to-run variation is not reported, cannot be resolved.
+
+\paragraph{A mechanical reading of the gap at $\delta=0.3$.} The last column of \cref{tab:app-oat} explains most of KalSea's deficit. Its non-failed designs use on average 0.71\% less material than prescribed, while ReSPect's match the target volume (\cref{fig:app-oat-dist}b), and 44\% of KalSea's samples have a volume-fraction error below $-1\%$ against 20\% of ReSPect's. By the optimality condition \cref{eq:app-kkt}, removing material from a near-optimal design raises its compliance at first order, $\delta C\approx-\lambda\,\delta V$, and removing it from a slender member that carries a load breaks the load path. The data agree with this reading in both respects. Among non-failed samples with the same volume-fraction error, the two caches have nearly the same compliance error (e.g.\ 12.0\% vs.\ 12.1\% for a VFE between $-2\%$ and $-1\%$, and 8.8\% vs.\ 8.6\% between $-0.5\%$ and $0$), and the failure rate of samples with VFE $<-1\%$ is 56\% (KalSea) and 61\% (ReSPect), against 34\% and 36\% for the others. Re-weighting KalSea's conditional failure rates with ReSPect's distribution of the volume error would give 38.7\%, below ReSPect's 40.9\%. KalSea's deficit is thus a \emph{material} deficit rather than a worse layout. The compliance error grows by roughly 2--3 points per point of volume lost, steeper than the factor of one that uniform thinning of a statically determinate truss would give ($C\propto1/V$ when all member areas are scaled together), because the material is lost preferentially from thin members.
+
+Why KalSea loses material when it skips four of twenty steps is not yet isolated. A plausible cause is the trend component of its damped-trend forecast, which extrapolates the residual's drift across the four-step gap in the middle of the trajectory (steps 10--13), together with the first-order nature of the PCGS correction, which attaches the residual of the uncorrected latent to the corrected one (\cref{sec:kalsea-pcgs}) and is accurate only while the correction is small. With OAT's trailing timesteps and zero terminal SNR, every DDIM step rotates the sample by $\Delta_t\approx4.5^\circ$ in the plane of \cref{eq:app-rotation} (the last by $5.1^\circ$), so the gap of steps 10--13 spans $18^\circ$ of the $90^\circ$ trajectory, whereas a gap of the 2000-step DiffusionPDE sampler covers only a tiny fraction of its trajectory. ReSPect's global Chebyshev fit of the whole residual history is less sensitive to the local trend. A run of KalSea without PCGS at the same budget would separate the two effects.
 
 \begin{table}[t]
   \centering
   \small
-  \caption[Caching OAT: results on the OpenTO test split]{Topology optimisation with OAT on the full OpenTO test split (5000 problems, 10 samples each, 20 DDIM steps, guidance 2.0). Evals: U-Net evaluations per sample (two per computed step). $^\dagger$Copied from the OAT paper \citep[Table~4]{nobari2025oat} (not re-run). CE$^*$, VFE$^*$: over non-failed samples; failure: CE $>100\%$.}
+  \caption[Caching OAT: results on the OpenTO test split]{Topology optimisation with OAT on the full OpenTO test split (5000 problems, 10 samples each, 20 DDIM steps, guidance 2.0). Evals: U-Net evaluations per sample (two per computed step, mean over problems). $^\dagger$Copied from the OAT paper \citep[Table~4]{nobari2025oat} (not re-run). CE$^*$, VFE$^*$: over non-failed samples; failure: CE $>100\%$. All metrics for one sample per problem, averaged over the ten samples (OAT's ``@\,1'' statistics). Bold: better of the two caches at the same budget.}
   \label{tab:app-oat}
   \begin{tabular}{@{}lccccc@{}}
     \toprule
@@ -199,14 +207,28 @@ We follow the protocol of the OAT paper for its fully general OpenTO benchmark (
     \midrule
     OAT (uncached)$^\dagger$ & 40 & 39.22 & 8.17 & 3.75 & $-0.12$ \\
     \midrule
-    ReSPect ($\delta=0.15$) & \TBD & \TBD & \TBD & \TBD & \TBD \\
-    KalSea ($\delta=0.15$) & \TBD & \TBD & \TBD & \TBD & \TBD \\
+    ReSPect ($\delta=0.15$) & 27.9 & \TBD & \TBD & \TBD & \TBD \\
+    KalSea ($\delta=0.15$) & 27.9 & 40.16 & 8.47 & 3.89 & $-0.16$ \\
     \midrule
-    ReSPect ($\delta=0.3$) & \TBD & \TBD & \TBD & \TBD & \TBD \\
-    KalSea ($\delta=0.3$) & \TBD & \TBD & \TBD & \TBD & \TBD \\
+    ReSPect ($\delta=0.3$) & 20.0 & \textbf{40.92} & \textbf{8.62} & \textbf{3.83} & $0.00$ \\
+    KalSea ($\delta=0.3$) & 20.0 & 43.78 & 10.42 & 5.31 & $-0.71$ \\
     \bottomrule
   \end{tabular}
 \end{table}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth]{app_oat_distributions.pdf}
+  \caption[Caching OAT: distributions of compliance and volume errors]{OAT on the OpenTO test split. (a) Empirical distribution of the compliance error over all 50{,}000 samples of each configuration (symmetric-logarithmic axis, linear between $-1$ and $1$); samples right of the dotted line are failures. (b) Volume-fraction error of the non-failed samples (range $\pm6\%$). KalSea at $\delta=0.3$ loses material systematically, which shifts its compliance errors to the right.}
+  \label{fig:app-oat-dist}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth]{app_gate_schedules.pdf}
+  \caption[Steps computed by the gate]{Steps computed by the gate. (a) OAT: fraction of the 5000 test problems in which each of the 20 DDIM steps is computed (ReSPect and KalSea pooled; their schedules are nearly identical). (b) DiffusionPDE, forward problem of case 1 with KalSea: fraction of computed steps in a sliding window of 50 Heun steps. In both samplers the gate spends its budget where the sample changes fastest: in the first steps of OAT, and in DiffusionPDE from about step 1150 ($\sigma\approx1.2$) onwards, a range that contains $\sigma=\sigma_d=0.5$, where skipping distorts the guidance most (\cref{sec:app-guidance-error}).}
+  \label{fig:app-schedules}
+\end{figure}
 
 \begin{figure}[t]
   \centering
@@ -256,7 +278,7 @@ applies only the observation losses during the first 80\% of the steps and, duri
 \end{itemize}
 
 \subsection{Results}
-\Cref{tab:app-pde} summarises the 16 cached solutions. With KalSea at $\delta=0.01$, the number of network calls drops from 3999 to about 2300 ($1.7\times$ fewer), and at $\delta=0.02$ to about 1550 ($2.6\times$ fewer). On the forward problem of case 1, KalSea recovers the flow with 3.3\% error at both budgets, below the paper's mean of 3.9\% for the uncached sampler, and on the inverse problem it stays at 3.6--5.2\% for both cases. ReSPect, at the same thresholds (and within 3\% of the same number of network calls), is worse in every one of the eight comparisons, most clearly on the forward problem (9.2--16.8\% vs.\ 3.3--14.6\%). Unlike on the media models, where ReSPect's open-loop forecast was competitive, here the closed loop is essential: the gradient guidance on skipped steps is approximate, and KalSea's corrector re-integrates every gap with the full guided update, repairing the drift that both the forecast and the approximate guidance introduce. The hardest setting is forward case 2 at $\delta=0.02$, where KalSea's error rises to 14.6\%; the budget at which caching is safe therefore depends on the case, which motivates a gate that also accounts for the guidance (\cref{ch:conclusion}). \Cref{fig:app-pde-forward,fig:app-pde-inverse} show the recovered fields and their errors. The error maps agree with the flow physics: away from the cylinder the field is smooth and all methods reproduce it, while the residual errors concentrate in the separated shear layers and the wake, where the velocity gradients are steepest and the sparse sensors constrain the unsteady structure least. ReSPect's open-loop errors are largest exactly there, and KalSea's corrector removes most of them. This is consistent with \cref{eq:app-gronwall}: on 2000 small steps the gaps are short (on average 1.1 steps at $\delta=0.01$ and 2.0 at $\delta=0.02$), but they are numerous, so open-loop errors accumulate over hundreds of gaps unless each gap is corrected.
+\Cref{tab:app-pde} summarises the 16 cached solutions and \cref{fig:app-pde-tradeoff} plots their errors against the number of network calls. With KalSea at $\delta=0.01$, the number of network calls drops from 3999 to about 2300 ($1.7\times$ fewer), and at $\delta=0.02$ to about 1550 ($2.6\times$ fewer). On the forward problem of case 1, KalSea recovers the flow with 3.3\% error at both budgets, below the paper's mean of 3.9\% for the uncached sampler, and on the inverse problem it stays at 3.6--5.2\% for both cases. ReSPect, at the same thresholds (and within 3\% of the same number of network calls), is worse in every one of the eight comparisons, most clearly on the forward problem (9.2--16.8\% vs.\ 3.3--14.6\%). Unlike on the media models, where ReSPect's open-loop forecast was competitive, here the closed loop is essential: the gradient guidance on skipped steps is approximate, and KalSea's corrector re-integrates every gap with the full guided update, repairing the drift that both the forecast and the approximate guidance introduce. The hardest setting is forward case 2 at $\delta=0.02$, where KalSea's error rises to 14.6\%; the budget at which caching is safe therefore depends on the case, which motivates a gate that also accounts for the guidance (\cref{ch:conclusion}). \Cref{fig:app-pde-forward,fig:app-pde-inverse} show the recovered fields and their errors. The error maps agree with the flow physics: away from the cylinder the field is smooth and all methods reproduce it, while the residual errors concentrate in the separated shear layers and the wake, where the velocity gradients are steepest and the sparse sensors constrain the unsteady structure least. ReSPect's open-loop errors are largest exactly there, and KalSea's corrector removes most of them. This is consistent with \cref{eq:app-gronwall}: on 2000 small steps the gaps are short (on average 1.1 steps at $\delta=0.01$ and 2.0 at $\delta=0.02$), but they are numerous, so open-loop errors accumulate over hundreds of gaps unless each gap is corrected. The gate distributes these gaps unevenly (\cref{fig:app-schedules}b): during the first 900 steps ($\sigma$ from 80 down to about 4) it computes half of the steps at $\delta=0.01$ and a quarter at $\delta=0.02$, whereas from about step 1150 ($\sigma\approx1.2$) it computes 76\% and 60\% of the steps, respectively; this is the noise range in which \cref{sec:app-guidance-error} predicts the largest distortion of the guidance on skipped steps.
 
 \begin{table}[t]
   \centering
@@ -279,6 +301,13 @@ applies only the observation losses during the first 80\% of the steps and, duri
     \bottomrule
   \end{tabular}
 \end{table}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth]{app_pde_tradeoff.pdf}
+  \caption[Caching DiffusionPDE: error against network calls]{DiffusionPDE, bounded Navier--Stokes: relative $L^2$ error against network calls per solution for the forward (a) and inverse (b) problems. Each line joins $\delta=0.01$ (right) and $\delta=0.02$ (left) for one method and case. The dotted line continues KalSea on forward case 1 with the calibration runs at larger thresholds. The diamond is the uncached sampler as reported in the paper (mean $\pm$ standard deviation over 1000 scenes, 3999 calls; not re-run).}
+  \label{fig:app-pde-tradeoff}
+\end{figure}
 
 \begin{figure}[t]
   \centering
@@ -314,7 +343,8 @@ python pde_cache.py --case 1 --problem forward --steps 2000 \
 \section{Discussion}\label{sec:app-discussion}
 
 \begin{itemize}
-  \item \textbf{Short versus long schedules.} OAT is designed for few-step sampling, so the room for skipping is limited to a few of its 20 steps. DiffusionPDE, at the other extreme, takes 2000 small guided steps; there the gate skips about 40--60\% of the network calls. Together the two applications bracket the regimes in which caching is used.
+  \item \textbf{Short versus long schedules.} OAT is designed for few-step sampling: each of its 20 steps rotates the sample by $4.5^\circ$, so skipping four steps in a row is a large extrapolation, and there ReSPect's global fit of the residual history was more robust than KalSea's trend-based forecast. DiffusionPDE, at the other extreme, takes 2000 small guided steps; there the gate skips about 40--60\% of the network calls in short but numerous gaps, and KalSea's corrector was decisive. Together the two applications bracket the regimes in which caching is used, and neither cache dominates in both.
   \item \textbf{Physics-based acceptance.} For engineering use, a cached sample is acceptable only if its physical performance is preserved. Both studies therefore report engineering metrics, compliance from a finite-element analysis and the error with respect to a flow simulation, rather than visual similarity alone.
+  \item \textbf{Volume as a diagnostic.} In topology optimisation the volume-fraction error, usually reported only as a constraint check, proved to be the most informative metric: KalSea's higher compliance error at $\delta=0.3$ is explained almost entirely by lost material, as the optimality condition \cref{eq:app-kkt} predicts, and at equal volume error the two caches produce equally stiff designs. A cache for structural design should therefore be judged, and possibly corrected, with respect to the volume constraint as well as the compliance.
   \item \textbf{Open versus closed loop under guidance.} The DiffusionPDE results give the clearest evidence in this report for the benefit of the corrector: when guidance gradients are approximated on skipped steps, an open-loop forecast lets the error accumulate, while KalSea's re-integration of every gap keeps the solution close to the observations and the PDE.
 \end{itemize}
