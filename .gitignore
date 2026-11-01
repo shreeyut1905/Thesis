@@ -1,0 +1,14 @@
+# LaTeX build artefacts (main.pdf is committed on purpose)
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.lot
+*.lol
+*.log
+*.out
+*.toc
+*.synctex.gz
+__pycache__/

@@ -1,0 +1,41 @@
+\chapter{Introduction}\label{ch:introduction}
+
+\section{Background and motivation}
+
+Diffusion models \citep{sohl2015deep,ho2020ddpm,song2021sde} and their flow-matching counterparts \citep{lipman2023flow,liu2023rectifiedflow} are the dominant family of generative models today. They produce images and videos of remarkable quality, and they are increasingly used in science and engineering: to propose optimal structures in topology optimisation \citep{maze2023topodiff,nobari2025oat}, to design mechanical metamaterials \citep{bastek2023inverse} and CAD models \citep{xu2024brepgen}, and to reconstruct flow fields governed by partial differential equations \citep{shu2023physics,huang2024diffusionpde}. Their strength comes at a price. A diffusion model generates a sample by starting from random noise and removing it gradually: a numerical solver integrates a learned differential equation over tens to thousands of steps, and every step requires a full evaluation of a large neural network. In the current text-to-image and text-to-video models, this network is a diffusion transformer (DiT) \citep{peebles2023dit} with billions of parameters that processes thousands of tokens; FLUX.1-dev, for example, needs about five seconds on a state-of-the-art GPU for a single $1024\times1024$ image, and HunyuanVideo more than a minute for a short video clip.
+
+Many approaches reduce this cost, from faster solvers to distillation into few-step students and quantisation (\cref{sec:lit-accel}). Most of them require additional training or change the model's outputs. \emph{Feature caching} is different: it exploits the observation that the network's internal activations change only slightly between consecutive steps. On some steps, the expensive part of the network is skipped and its output is approximated from the steps that were computed. Caching is training-free, leaves the weights and the sampler unchanged, and can be combined with the other approaches.
+
+Every cache has to make two decisions at every step:
+\begin{enumerate}
+  \item \textbf{When to compute:} should the network be evaluated at this step, or can it be skipped?
+  \item \textbf{What to write:} if the step is skipped, what should be written in place of the missing network output?
+\end{enumerate}
+The quality of a cache depends on both. A cache that skips at the wrong moments, for example when the content of the image is still forming, loses detail however good its approximation; a cache that skips at the right moments but writes a stale copy of an old output cannot skip many steps in a row.
+
+\section{Problem statement}
+
+At the start of this project, the most relevant prior methods each addressed one of the two decisions. SeaCache \citep{chung2026seacache} decides \emph{when} to compute with a gate that measures the change of the network input after a spectral filter derived from the optimal linear denoiser, so that the gate responds to the content rather than to the noise; but on skipped steps it simply reuses the last computed output. Spectrum \citep{han2026spectrum} decides \emph{what} to write by fitting the whole history of the network's features with Chebyshev polynomials; but it forecasts the full hidden state and is used with simple schedules. Moreover, every filler in the literature, whether it reuses or forecasts, is \emph{open loop}: when the next computed step reveals how wrong the filler was, its error has already been integrated into the sample and is never corrected. Finally, caching had been developed almost exclusively for text-to-image and text-to-video models, although engineering diffusion models are often sampled with even more steps.
+
+This project therefore addresses the following questions:
+\begin{itemize}
+  \item How should a spectrally aligned gate be combined with a long-horizon forecaster, and what exactly should be forecast?
+  \item Can the forecaster's design choices be derived rather than tuned, and what can be proven about its error as a function of the skip length?
+  \item Can the observation made at each computed step be used to correct the steps that were skipped before it, without additional network evaluations?
+  \item Do these techniques carry over to diffusion models used in mechanical engineering?
+\end{itemize}
+
+\section{Objectives and contributions}
+
+The objectives of the project were to develop training-free caches that improve the quality--compute trade-off of diffusion transformers at matched compute, to justify their design theoretically, to evaluate them on large open image and video models, and to apply them to mechanical-engineering diffusion models. The contributions are:
+\begin{enumerate}
+  \item \textbf{ReSPect} (Residual Spectral Prediction, \cref{ch:respect}): a cache that couples the spectrally aligned gate with a forecaster of the transformer \emph{residual}, combining a ridge-regularised Chebyshev fit of the residual history with a first-order Taylor correction. We prove error bounds that rank copy-reuse, Taylor extrapolation and Chebyshev forecasting by their dependence on the skip length, show why residuals are better regression targets than hidden states, and derive the blend weight and warm-up analytically. ReSPect achieves speedups of $3.30\times$, $2.63\times$ and $2.77\times$ on FLUX.1-dev, Wan2.1 and HunyuanVideo with lower error than existing caches at matched or lower compute.
+  \item \textbf{KalSea} (Kalman-Corrected Spectral-Evolution-Aware Caching, \cref{ch:kalsea}): a cache whose damped-trend Kalman forecaster is followed by \emph{predictor--corrector gap smoothing} (PCGS), which, once the next step is computed, smooths the residuals of the skipped gap with the Rauch--Tung--Striebel smoother, re-integrates the gap through the cheap output layers and continues from the corrected sample. PCGS needs no extra network evaluations and closes the loop that all previous caches leave open. On FLUX.1-dev KalSea reaches 27.72\,dB PSNR at 18.1 of 50 evaluations, compared with 26.29\,dB published for SeaCache, and it improves on SeaCache on both video models.
+  \item \textbf{Open implementations} of both methods for FLUX.1-dev, HunyuanVideo and Wan2.1, and for KalSea additionally FLUX.2 [dev] and MiniMax-H3, verified against exact invariants.
+  \item \textbf{Applications in mechanical engineering} (\cref{ch:applications}): a generalisation of both caches to U-Net denoisers, DDIM and guided EDM samplers, and their integration into two recent open-weight models, Optimize Any Topology for structural topology optimisation and DiffusionPDE for flow-field reconstruction, with an evaluation protocol based on engineering metrics.
+\end{enumerate}
+The two methods are also described in two research papers that I co-authored with Abhishek Varshney, \guidename, Monty Anderson and Caleb Case.
+
+\section{Organisation of the report}
+
+\Cref{ch:literature} reviews diffusion models, acceleration methods, training-free caching, Kalman filtering and smoothing, and diffusion models in mechanical engineering, and identifies the research gaps. \Cref{ch:background} introduces the notation, the residual-caching formulation, the derivation of the spectrally aligned gate and the evaluation methodology. \Cref{ch:respect,ch:kalsea} present ReSPect and KalSea with their theory, implementation and experiments, and compare the two. \Cref{ch:applications} applies both methods to topology optimisation and flow-field reconstruction. \Cref{ch:conclusion} concludes and outlines future work. \Cref{app:code} reproduces the key parts of the code.

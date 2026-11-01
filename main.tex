@@ -1,0 +1,260 @@
+%% =====================================================================
+%%  B.Tech. Project Report -- Shreeyut Maheshwari (230003071), IIT Indore
+%%  Build:  latexmk -pdf main.tex     (or: pdflatex, bibtex, pdflatex x2)
+%% =====================================================================
+\documentclass[12pt,a4paper,oneside]{report}
+
+%% ---------------- Fonts, layout ----------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amsthm}                % amsthm must precede newtxmath
+\usepackage{newtxtext,newtxmath}            % Times-like, as in the Word template
+\usepackage[a4paper,top=1in,bottom=1in,left=1.25in,right=1in]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+\usepackage{microtype}
+
+%% ---------------- Mathematics ----------------
+\usepackage{mathtools,bm}
+\newtheorem{theorem}{Theorem}[chapter]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+%% ---------------- Figures, tables, algorithms ----------------
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{float}
+\usepackage{booktabs,multirow,tabularx,array,makecell}
+\usepackage{caption,subcaption}
+\captionsetup{font=small,labelfont=bf}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+\usepackage{siunitx}
+\sisetup{detect-all}
+\usepackage{enumitem}
+\setlist{itemsep=2pt,topsep=4pt}
+\usepackage[dvipsnames,table]{xcolor}
+\usepackage{listings}
+\lstset{basicstyle=\ttfamily\scriptsize,breaklines=true,breakatwhitespace=false,frame=single,
+        columns=fullflexible,keepspaces=true,showstringspaces=false,
+        keywordstyle=\color{RoyalBlue}\bfseries,commentstyle=\color{ForestGreen},
+        stringstyle=\color{BrickRed},numbers=left,numberstyle=\tiny\color{gray},
+        language=Python}
+
+%% ---------------- Headings, header/footer ----------------
+\usepackage{titlesec}
+\titleformat{\chapter}[display]
+  {\normalfont\centering\bfseries}
+  {\Large\chaptertitlename\ \thechapter}{8pt}{\LARGE}
+\titlespacing*{\chapter}{0pt}{-10pt}{24pt}
+\titleformat{\section}{\normalfont\large\bfseries}{\thesection}{0.8em}{}
+\titleformat{\subsection}{\normalfont\normalsize\bfseries}{\thesubsection}{0.8em}{}
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyfoot[R]{\small Page \textbar\ \thepage}
+\fancypagestyle{plain}{\fancyhf{}\renewcommand{\headrulewidth}{0pt}%
+  \fancyfoot[R]{\small Page \textbar\ \thepage}}
+
+%% ---------------- References, links ----------------
+\usepackage[numbers,square,sort&compress]{natbib}
+\usepackage{xurl}
+\usepackage[hidelinks,bookmarksnumbered]{hyperref}
+\usepackage[capitalise,nameinlink]{cleveref}
+
+%% ---------------- Project macros ----------------
+\newcommand{\ReSPect}{ReSPect}
+\newcommand{\KalSea}{KalSea}
+\newcommand{\NFE}{\mathrm{NFE}}
+\newcommand{\Emb}{\mathrm{Emb}}
+\newcommand{\Out}{\mathrm{Out}}
+\newcommand{\SEA}{\mathrm{SEA}}
+\newcommand{\Lone}{\mathrm{L1}_{\mathrm{rel}}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\tr}{^{\top}}
+%% Placeholder for metrics of the full-scale runs (to be filled in later)
+\newcommand{\TBD}{\textcolor{BrickRed}{\textbf{[TBD]}}}
+
+%% ---------------- Title information ----------------
+\newcommand{\thesistitle}{Accelerating Diffusion Models with Training-Free Caching: ReSPect and KalSea, with Applications in Mechanical Engineering}
+\newcommand{\thesistitleshort}{Accelerating Diffusion Models with Training-Free Caching}
+\newcommand{\studentname}{Shreeyut Maheshwari}
+\newcommand{\rollno}{230003071}
+\newcommand{\guidename}{Dr.\ Mohd.\ Arshad}
+\newcommand{\guidedesig}{Assistant Professor}
+\newcommand{\guidedept}{Department of Mathematics}
+\newcommand{\discipline}{Mechanical Engineering}
+\newcommand{\submissiondate}{November 2026}
+
+\hypersetup{pdftitle={\thesistitle},pdfauthor={\studentname}}
+
+\begin{document}
+
+%% =====================================================================
+%%  FRONT MATTER
+%% =====================================================================
+\pagenumbering{arabic}
+
+%% ---------------- Title page 1 ----------------
+\clearpage\begingroup
+\thispagestyle{plain}
+\centering
+\vspace*{0.4cm}
+{\fontsize{26}{32}\selectfont\bfseries B. TECH. PROJECT REPORT\par}
+\vspace{0.4cm}
+{\fontsize{24}{30}\selectfont\bfseries On\par}
+\vspace{0.4cm}
+{\fontsize{21}{28}\selectfont\bfseries Accelerating Diffusion Models with\\ Training-Free Caching:\\ ReSPect and KalSea\par}
+\vspace{0.3cm}
+{\large\bfseries with Applications in Mechanical Engineering\par}
+\vspace{1.2cm}
+{\large BY\par}
+\vspace{0.2cm}
+{\large\bfseries \studentname\par}
+{\large\bfseries \rollno\par}
+\vspace{1.2cm}
+\includegraphics[width=0.30\textwidth]{iiti_logo.jpg}\par
+\vfill
+{\large\bfseries DISCIPLINE OF MECHANICAL ENGINEERING\par}
+{\large\bfseries INDIAN INSTITUTE OF TECHNOLOGY INDORE\par}
+{\large\bfseries \submissiondate\par}
+\par\endgroup\clearpage
+
+%% ---------------- Title page 2 ----------------
+\clearpage\begingroup
+\thispagestyle{plain}
+\centering
+\vspace*{0.2cm}
+{\fontsize{22}{29}\selectfont\bfseries Accelerating Diffusion Models with Training-Free Caching: ReSPect and KalSea, with Applications in Mechanical Engineering\par}
+\vspace{1.0cm}
+{\large\bfseries A PROJECT REPORT\par}
+\vspace{0.6cm}
+{\itshape Submitted in partial fulfillment of the\\ requirements for the award of the degree\par}
+\vspace{0.6cm}
+{\bfseries\itshape of\par}
+{\large\bfseries BACHELOR OF TECHNOLOGY\par}
+{\bfseries in\par}
+\vspace{0.4cm}
+{\large\bfseries MECHANICAL ENGINEERING\par}
+\vspace{0.6cm}
+{\itshape Submitted by:\par}
+{\large\bfseries \studentname\par}
+\vspace{0.5cm}
+{\itshape Guided by:\par}
+{\large\bfseries \guidename\par}
+\vspace{0.6cm}
+\includegraphics[width=0.28\textwidth]{iiti_logo.jpg}\par
+\vfill
+{\large\bfseries INDIAN INSTITUTE OF TECHNOLOGY INDORE\par}
+{\large\bfseries \submissiondate\par}
+\par\endgroup\clearpage
+
+%% ---------------- Declaration and certificate ----------------
+\chapter*{}
+\vspace{-2.5cm}
+\begin{center}
+{\large\bfseries\underline{CANDIDATE'S DECLARATION}}
+\end{center}
+\vspace{0.4cm}
+\noindent I hereby declare that the project entitled \textbf{``\thesistitle,''} submitted in partial fulfillment for the award of the degree of Bachelor of Technology in `\discipline' completed under the supervision of \textbf{\guidename, \guidedesig,} IIT Indore is an authentic work.
+
+\medskip
+Further, I declare that I have not submitted this work for the award of any other degree elsewhere.
+
+\vspace{1.6cm}
+\begin{flushright}
+\rule{6cm}{0.4pt}\\
+\textbf{Signature and name of the student with the date}\\
+\studentname\ (\rollno)
+\end{flushright}
+\noindent\rule{\textwidth}{1pt}
+\begin{center}
+{\large\bfseries\underline{CERTIFICATE by BTP Guide}}
+\end{center}
+\vspace{0.3cm}
+\noindent It is certified that the above statement made by the student is correct to the best of my knowledge.
+
+\vspace{1.8cm}
+\begin{flushright}
+\rule{6cm}{0.4pt}\\
+\textbf{Signature of BTP Guide with date and designation}\\
+\textbf{\guidename}\\
+\textbf{\guidedesig}\\
+\textbf{\guidedept}\\
+\textbf{IIT Indore}
+\end{flushright}
+
+%% ---------------- Preface ----------------
+\chapter*{Preface}
+\addcontentsline{toc}{chapter}{Preface}
+This report on ``\thesistitle'' was prepared under the guidance of \guidename. It describes my B.Tech.\ project on making diffusion models, the generative models behind current image and video generators and an increasing number of engineering design tools, faster to sample without retraining them. The project started with a literature review of training-free feature caching, in particular SeaCache and Spectrum, and led to two methods of my own: \emph{ReSPect} (Residual Spectral Prediction), which forecasts the skipped transformer residuals with a Chebyshev--Taylor predictor behind a spectrally aligned gate, and \emph{KalSea} (Kalman-Corrected Spectral-Evolution-Aware Caching), which replaces the open-loop forecast by a Kalman filter and corrects every skipped gap with predictor-corrector gap smoothing.
+
+The report explains the theory behind both methods, their implementation for several open-weight models, their evaluation, and how they carry over to diffusion models used in mechanical engineering, namely structural topology optimization and the reconstruction of flow fields governed by partial differential equations. I have tried, to the best of my abilities, to explain the content in a lucid manner and have added figures, tables and algorithms to make it more illustrative.
+
+\vspace{1cm}
+\noindent\studentname\\
+B.Tech.\ IV Year\\
+Discipline of \discipline\\
+IIT Indore
+
+%% ---------------- Acknowledgments ----------------
+\chapter*{Acknowledgments}
+\addcontentsline{toc}{chapter}{Acknowledgments}
+I extend my sincere gratitude to \guidename\ for his unwavering support and invaluable guidance throughout the course of this project. His encouragement to pursue a research problem in depth, and his insistence on careful analysis and honest comparison, shaped both methods described in this report. Without his mentorship this work would not have been possible.
+
+I thank my co-author Abhishek Varshney (IIT Indore) for the many discussions on the methods and experiments, and Monty Anderson and Caleb Case (Prodia), co-authors of the ReSPect and KalSea papers, for their collaboration. I am also grateful to the authors of SeaCache, Spectrum, FLUX, HunyuanVideo, Wan2.1, Optimize Any Topology and DiffusionPDE for releasing their code and model weights, on which all experiments in this report are built. This experience has been both enlightening and rewarding.
+
+\vspace{1cm}
+\noindent\studentname\\
+B.Tech.\ IV Year\\
+Discipline of \discipline\\
+IIT Indore
+
+%% ---------------- Abstract ----------------
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+\input{chapters/abstract}
+
+%% ---------------- Lists ----------------
+\cleardoublepage
+\renewcommand{\contentsname}{Table of Contents}
+\tableofcontents
+\listoffigures
+\addcontentsline{toc}{chapter}{List of Figures}
+\listoftables
+\addcontentsline{toc}{chapter}{List of Tables}
+\input{chapters/abbreviations}
+
+%% =====================================================================
+%%  MAIN MATTER
+%% =====================================================================
+\input{chapters/ch1_introduction}
+\input{chapters/ch2_literature}
+\input{chapters/ch3_background}
+\input{chapters/ch4_respect}
+\input{chapters/ch5_kalsea}
+\input{chapters/ch6_applications}
+\input{chapters/ch7_conclusion}
+
+%% =====================================================================
+%%  REFERENCES AND APPENDICES
+%% =====================================================================
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{References}
+\renewcommand{\bibname}{References}
+\bibliographystyle{unsrtnat}
+\bibliography{references}
+
+\appendix
+\input{chapters/appendix}
+
+\end{document}

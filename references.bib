@@ -1,0 +1,613 @@
+%% ===================================================================
+%% Shared bibliography for the B.Tech. thesis (ReSPect + KalSea).
+%% Entries are taken from the reference lists of the ReSPect and KalSea
+%% papers, plus mechanical-engineering applications and background.
+%% Chapter authors: cite ONLY keys defined here; add new entries at the
+%% end of this file under a clearly marked section.
+%% ===================================================================
+
+%% ---------------- Diffusion / flow models and backbones ----------------
+@inproceedings{sohl2015deep,
+  author    = {Jascha Sohl-Dickstein and Eric Weiss and Niru Maheswaranathan and Surya Ganguli},
+  title     = {Deep Unsupervised Learning using Nonequilibrium Thermodynamics},
+  booktitle = {International Conference on Machine Learning (ICML)},
+  year      = {2015}
+}
+@inproceedings{ho2020ddpm,
+  author    = {Jonathan Ho and Ajay Jain and Pieter Abbeel},
+  title     = {Denoising Diffusion Probabilistic Models},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2020}
+}
+@inproceedings{song2021sde,
+  author    = {Yang Song and Jascha Sohl-Dickstein and Diederik P. Kingma and Abhishek Kumar and Stefano Ermon and Ben Poole},
+  title     = {Score-Based Generative Modeling through Stochastic Differential Equations},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2021}
+}
+@inproceedings{song2021ddim,
+  author    = {Jiaming Song and Chenlin Meng and Stefano Ermon},
+  title     = {Denoising Diffusion Implicit Models},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2021}
+}
+@inproceedings{nichol2021improved,
+  author    = {Alexander Quinn Nichol and Prafulla Dhariwal},
+  title     = {Improved Denoising Diffusion Probabilistic Models},
+  booktitle = {International Conference on Machine Learning (ICML)},
+  year      = {2021}
+}
+@inproceedings{dhariwal2021diffusion,
+  author    = {Prafulla Dhariwal and Alexander Nichol},
+  title     = {Diffusion Models Beat {GANs} on Image Synthesis},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2021}
+}
+@inproceedings{rombach2022ldm,
+  author    = {Robin Rombach and Andreas Blattmann and Dominik Lorenz and Patrick Esser and Bj{\"o}rn Ommer},
+  title     = {High-Resolution Image Synthesis with Latent Diffusion Models},
+  booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  year      = {2022}
+}
+@inproceedings{karras2022edm,
+  author    = {Tero Karras and Miika Aittala and Timo Aila and Samuli Laine},
+  title     = {Elucidating the Design Space of Diffusion-Based Generative Models},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  pages     = {26565--26577},
+  year      = {2022}
+}
+@inproceedings{ho2022cfg,
+  author    = {Jonathan Ho and Tim Salimans},
+  title     = {Classifier-Free Diffusion Guidance},
+  booktitle = {NeurIPS Workshop on Deep Generative Models and Downstream Applications},
+  note      = {arXiv:2207.12598},
+  year      = {2022}
+}
+@inproceedings{lipman2023flow,
+  author    = {Yaron Lipman and Ricky T. Q. Chen and Heli Ben-Hamu and Maximilian Nickel and Matt Le},
+  title     = {Flow Matching for Generative Modeling},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2023}
+}
+@inproceedings{liu2023rectifiedflow,
+  author    = {Xingchao Liu and Chengyue Gong and Qiang Liu},
+  title     = {Flow Straight and Fast: Learning to Generate and Transfer Data with Rectified Flow},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2023}
+}
+@inproceedings{albergo2023stochastic,
+  author    = {Michael S. Albergo and Eric Vanden-Eijnden},
+  title     = {Building Normalizing Flows with Stochastic Interpolants},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2023}
+}
+@inproceedings{esser2024sd3,
+  author    = {Patrick Esser and Sumith Kulal and Andreas Blattmann and Rahim Entezari and Jonas M{\"u}ller and Harry Saini and Yam Levi and Dominik Lorenz and Axel Sauer and Frederic Boesel and Dustin Podell and Tim Dockhorn and Zion English and Robin Rombach},
+  title     = {Scaling Rectified Flow Transformers for High-Resolution Image Synthesis},
+  booktitle = {International Conference on Machine Learning (ICML)},
+  pages     = {12606--12633},
+  year      = {2024}
+}
+@inproceedings{vaswani2017attention,
+  author    = {Ashish Vaswani and Noam Shazeer and Niki Parmar and Jakob Uszkoreit and Llion Jones and Aidan N. Gomez and {\L}ukasz Kaiser and Illia Polosukhin},
+  title     = {Attention Is All You Need},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2017}
+}
+@inproceedings{ronneberger2015unet,
+  author    = {Olaf Ronneberger and Philipp Fischer and Thomas Brox},
+  title     = {{U-Net}: Convolutional Networks for Biomedical Image Segmentation},
+  booktitle = {Medical Image Computing and Computer-Assisted Intervention (MICCAI)},
+  year      = {2015}
+}
+@inproceedings{peebles2023dit,
+  author    = {William Peebles and Saining Xie},
+  title     = {Scalable Diffusion Models with Transformers},
+  booktitle = {IEEE/CVF International Conference on Computer Vision (ICCV)},
+  pages     = {4195--4205},
+  year      = {2023}
+}
+@misc{bfl2024flux,
+  author       = {{Black Forest Labs}},
+  title        = {{FLUX.1 [dev]}},
+  howpublished = {\url{https://github.com/black-forest-labs/flux}},
+  note         = {Open-source code and model weights},
+  year         = {2024}
+}
+@article{kong2024hunyuanvideo,
+  author  = {Weijie Kong and Qi Tian and Zijian Zhang and Rox Min and Zuozhuo Dai and Jin Zhou and Jiangfeng Xiong and Xin Li and Bo Wu and Jianwei Zhang and Kathrina Wu and Qin Lin and others},
+  title   = {{HunyuanVideo}: A Systematic Framework for Large Video Generative Models},
+  journal = {arXiv preprint arXiv:2412.03603},
+  year    = {2024}
+}
+@article{wan2025wan,
+  author  = {{Team Wan} and Ang Wang and Baole Ai and Bin Wen and Chaojie Mao and Chen-Wei Xie and Di Chen and Feiwu Yu and Haiming Zhao and Jianxiao Yang and Jianyuan Zeng and Jiayu Wang and others},
+  title   = {Wan: Open and Advanced Large-Scale Video Generative Models},
+  journal = {arXiv preprint arXiv:2503.20314},
+  year    = {2025}
+}
+@inproceedings{saharia2022imagen,
+  author    = {Chitwan Saharia and William Chan and Saurabh Saxena and Lala Li and Jay Whang and Emily L. Denton and Seyed Kamyar Seyed Ghasemipour and Raphael Gontijo Lopes and Burcu Karagol Ayan and Tim Salimans and Jonathan Ho and David J. Fleet and Mohammad Norouzi},
+  title     = {Photorealistic Text-to-Image Diffusion Models with Deep Language Understanding},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  pages     = {36479--36494},
+  year      = {2022}
+}
+@inproceedings{lin2024zerosnr,
+  author    = {Shanchuan Lin and Bingchen Liu and Jiashi Li and Xiao Yang},
+  title     = {Common Diffusion Noise Schedules and Sample Steps Are Flawed},
+  booktitle = {IEEE/CVF Winter Conference on Applications of Computer Vision (WACV)},
+  year      = {2024}
+}
+
+%% ---------------- Fast samplers, distillation, quantisation ----------------
+@inproceedings{lu2022dpmsolver,
+  author    = {Cheng Lu and Yuhao Zhou and Fan Bao and Jianfei Chen and Chongxuan Li and Jun Zhu},
+  title     = {{DPM-Solver}: A Fast {ODE} Solver for Diffusion Probabilistic Model Sampling in Around 10 Steps},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  pages     = {5775--5787},
+  year      = {2022}
+}
+@article{lu2025dpmsolverpp,
+  author  = {Cheng Lu and Yuhao Zhou and Fan Bao and Jianfei Chen and Chongxuan Li and Jun Zhu},
+  title   = {{DPM-Solver++}: Fast Solver for Guided Sampling of Diffusion Probabilistic Models},
+  journal = {Machine Intelligence Research},
+  volume  = {22},
+  number  = {4},
+  pages   = {730--751},
+  year    = {2025}
+}
+@inproceedings{zhao2023unipc,
+  author    = {Wenliang Zhao and Lujia Bai and Yongming Rao and Jie Zhou and Jiwen Lu},
+  title     = {{UniPC}: A Unified Predictor-Corrector Framework for Fast Sampling of Diffusion Models},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  pages     = {49842--49869},
+  year      = {2023}
+}
+@inproceedings{salimans2022progressive,
+  author    = {Tim Salimans and Jonathan Ho},
+  title     = {Progressive Distillation for Fast Sampling of Diffusion Models},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2022}
+}
+@inproceedings{song2023consistency,
+  author    = {Yang Song and Prafulla Dhariwal and Mark Chen and Ilya Sutskever},
+  title     = {Consistency Models},
+  booktitle = {International Conference on Machine Learning (ICML)},
+  pages     = {32211--32252},
+  year      = {2023}
+}
+@article{luo2023lcm,
+  author  = {Simian Luo and Yiqin Tan and Longbo Huang and Jian Li and Hang Zhao},
+  title   = {Latent Consistency Models: Synthesizing High-Resolution Images with Few-Step Inference},
+  journal = {arXiv preprint arXiv:2310.04378},
+  year    = {2023}
+}
+@inproceedings{sauer2024add,
+  author    = {Axel Sauer and Dominik Lorenz and Andreas Blattmann and Robin Rombach},
+  title     = {Adversarial Diffusion Distillation},
+  booktitle = {European Conference on Computer Vision (ECCV)},
+  pages     = {87--103},
+  year      = {2024}
+}
+@inproceedings{yin2024dmd,
+  author    = {Tianwei Yin and Micha{\"e}l Gharbi and Richard Zhang and Eli Shechtman and Fr{\'e}do Durand and William T. Freeman and Taesung Park},
+  title     = {One-Step Diffusion with Distribution Matching Distillation},
+  booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  year      = {2024}
+}
+@inproceedings{li2023qdiffusion,
+  author    = {Xiuyu Li and Yijiang Liu and Long Lian and Huanrui Yang and Zhen Dong and Daniel Kang and Shanghang Zhang and Kurt Keutzer},
+  title     = {{Q-Diffusion}: Quantizing Diffusion Models},
+  booktitle = {IEEE/CVF International Conference on Computer Vision (ICCV)},
+  pages     = {17535--17545},
+  year      = {2023}
+}
+@article{zhao2024viditq,
+  author  = {Tianchen Zhao and Tongcheng Fang and Haofeng Huang and Enshu Liu and Rui Wan and Widyadewi Soedarmadji and Shiyao Li and Zinan Lin and Guohao Dai and Shengen Yan and others},
+  title   = {{ViDiT-Q}: Efficient and Accurate Quantization of Diffusion Transformers for Image and Video Generation},
+  journal = {arXiv preprint arXiv:2406.02540},
+  year    = {2024}
+}
+
+%% ---------------- Training-free caching ----------------
+@inproceedings{ma2024deepcache,
+  author    = {Xinyin Ma and Gongfan Fang and Xinchao Wang},
+  title     = {{DeepCache}: Accelerating Diffusion Models for Free},
+  booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  pages     = {15762--15772},
+  year      = {2024}
+}
+@inproceedings{wimbauer2024blockcache,
+  author    = {Felix Wimbauer and Bichen Wu and Edgar Schoenfeld and Xiaoliang Dai and Ji Hou and Zijian He and Artsiom Sanakoyeu and Peizhao Zhang and Sam Tsai and Jonas Kohler and Christian Rupprecht and Daniel Cremers and Peter Vajda and Jialiang Wang},
+  title     = {Cache Me if You Can: Accelerating Diffusion Models through Block Caching},
+  booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  pages     = {6211--6220},
+  year      = {2024}
+}
+@article{chen2024deltadit,
+  author  = {Pengtao Chen and Mingzhu Shen and Peng Ye and Jianjian Cao and Chongjun Tu and Christos-Savvas Bouganis and Yiren Zhao and Tao Chen},
+  title   = {{$\Delta$-DiT}: A Training-Free Acceleration Method Tailored for Diffusion Transformers},
+  journal = {arXiv preprint arXiv:2406.01125},
+  year    = {2024}
+}
+@article{selvaraju2024fora,
+  author  = {Pratheba Selvaraju and Tianyu Ding and Tianyi Chen and Ilya Zharkov and Luming Liang},
+  title   = {{FORA}: Fast-Forward Caching in Diffusion Transformer Acceleration},
+  journal = {arXiv preprint arXiv:2407.01425},
+  year    = {2024}
+}
+@inproceedings{zou2025toca,
+  author    = {Chang Zou and Xuyang Liu and Ting Liu and Siteng Huang and Linfeng Zhang},
+  title     = {Accelerating Diffusion Transformers with Token-wise Feature Caching},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2025}
+}
+@inproceedings{zhao2024pab,
+  author    = {Xuanlei Zhao and Xiaolong Jin and Kai Wang and Yang You},
+  title     = {Real-Time Video Generation with Pyramid Attention Broadcast},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  note      = {arXiv:2408.12588},
+  year      = {2025}
+}
+@inproceedings{lv2025fastercache,
+  author    = {Zhengyao Lv and Chenyang Si and Junhao Song and Zhenyu Yang and Yu Qiao and Ziwei Liu and Kwan-Yee K. Wong},
+  title     = {{FasterCache}: Training-Free Video Diffusion Model Acceleration with High Quality},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2025}
+}
+@inproceedings{ma2024l2c,
+  author    = {Xinyin Ma and Gongfan Fang and Michael Bi Mi and Xinchao Wang},
+  title     = {Learning-to-Cache: Accelerating Diffusion Transformer via Layer Caching},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  pages     = {133282--133304},
+  year      = {2024}
+}
+@inproceedings{chu2025omnicache,
+  author    = {Huanpeng Chu and Wei Wu and Guanyu Feng and Yutao Zhang},
+  title     = {{OmniCache}: A Trajectory-Oriented Global Perspective on Training-Free Cache Reuse for Diffusion Transformer Models},
+  booktitle = {IEEE/CVF International Conference on Computer Vision (ICCV)},
+  pages     = {16302--16312},
+  year      = {2025}
+}
+@inproceedings{kahatapitiya2025adacache,
+  author    = {Kumara Kahatapitiya and Haozhe Liu and Sen He and Ding Liu and Menglin Jia and Chenyang Zhang and Michael S. Ryoo and Tian Xie},
+  title     = {Adaptive Caching for Faster Video Generation with Diffusion Transformers},
+  booktitle = {IEEE/CVF International Conference on Computer Vision (ICCV)},
+  pages     = {15240--15252},
+  year      = {2025}
+}
+@inproceedings{liu2025teacache,
+  author    = {Feng Liu and Shiwei Zhang and Xiaofeng Wang and Yujie Wei and Haonan Qiu and Yuzhong Zhao and Yingya Zhang and Qixiang Ye and Fang Wan},
+  title     = {Timestep Embedding Tells: It's Time to Cache for Video Diffusion Model},
+  booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  pages     = {7353--7363},
+  year      = {2025}
+}
+@inproceedings{ma2025magcache,
+  author    = {Zehong Ma and Longhui Wei and Feng Wang and Shiliang Zhang and Qi Tian},
+  title     = {{MagCache}: Fast Video Generation with Magnitude-Aware Cache},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  pages     = {38592--38624},
+  year      = {2025}
+}
+@inproceedings{bu2025dicache,
+  author    = {Jiazi Bu and Pengyang Ling and Yujie Zhou and Yibin Wang and Yuhang Zang and Dahua Lin and Jiaqi Wang},
+  title     = {{DiCache}: Let Diffusion Model Determine Its Own Cache},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  note      = {arXiv:2508.17356},
+  year      = {2026}
+}
+@article{liu2025freqca,
+  author  = {Jiacheng Liu and Peiliang Cai and Qinming Zhou and others},
+  title   = {{FreqCa}: Accelerating Diffusion Models via Frequency-Aware Caching},
+  journal = {arXiv preprint arXiv:2510.08669},
+  year    = {2025}
+}
+@inproceedings{chung2026seacache,
+  author    = {Jiwoo Chung and Sangeek Hyun and MinKyu Lee and Byeongju Han and Geonho Cha and Dongyoon Wee and Youngjun Hong and Jae-Pil Heo},
+  title     = {{SeaCache}: Spectral-Evolution-Aware Cache for Accelerating Diffusion Models},
+  booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  pages     = {14283--14294},
+  note      = {arXiv:2602.18993},
+  year      = {2026}
+}
+
+%% ---------------- Forecasting / correcting cached features ----------------
+@inproceedings{liu2025taylorseer,
+  author    = {Jiacheng Liu and Chang Zou and Yuanhuiyi Lyu and Junjie Chen and Linfeng Zhang},
+  title     = {From Reusing to Forecasting: Accelerating Diffusion Models with {TaylorSeers}},
+  booktitle = {IEEE/CVF International Conference on Computer Vision (ICCV)},
+  pages     = {15853--15863},
+  note      = {arXiv:2503.06923},
+  year      = {2025}
+}
+@inproceedings{feng2026hicache,
+  author    = {Liang Feng and Shikang Zheng and Jiacheng Liu and Yuqi Lin and Qinming Zhou and Peiliang Cai and Xinyu Wang and Junjie Chen and Chang Zou and Yue Ma and Linfeng Zhang},
+  title     = {{HiCache}: A Plug-in Scaled-{H}ermite Upgrade for {T}aylor-Style Cache-then-Forecast Diffusion Acceleration},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2026}
+}
+@inproceedings{han2026spectrum,
+  author    = {Jiaqi Han and Juntong Shi and Puheng Li and Haotian Ye and Qiushan Guo and Stefano Ermon},
+  title     = {Adaptive Spectral Feature Forecasting for Diffusion Sampling Acceleration},
+  booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  pages     = {43320--43330},
+  note      = {Spectrum; arXiv:2603.01623},
+  year      = {2026}
+}
+@inproceedings{zheng2026foca,
+  author    = {Shikang Zheng and Liang Feng and Xinyu Wang and Qinming Zhou and Peiliang Cai and Chang Zou and Jiacheng Liu and Yuqi Lin and Junjie Chen and Yue Ma and Linfeng Zhang},
+  title     = {Forecast then Calibrate: Feature Caching as {ODE} for Efficient Diffusion Transformers},
+  booktitle = {AAAI Conference on Artificial Intelligence},
+  pages     = {13449--13457},
+  year      = {2026}
+}
+@inproceedings{liu2025speca,
+  author    = {Jiacheng Liu and Chang Zou and Yuanhuiyi Lyu and Fei Ren and Shaobo Wang and Kaixin Li and Linfeng Zhang},
+  title     = {{SpeCa}: Accelerating Diffusion Transformers with Speculative Feature Caching},
+  booktitle = {ACM International Conference on Multimedia},
+  pages     = {10024--10033},
+  year      = {2025}
+}
+@inproceedings{peng2026ertacache,
+  author    = {Xurui Peng and Chenqian Yan and Hong Liu and Rui Ma and Fangmin Chen and Xing Wang and Zhihua Wu and Songwei Liu and Mingbao Lin},
+  title     = {{ERTACache}: Error Rectification and Timesteps Adjustment for Efficient Diffusion},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2026}
+}
+@inproceedings{shen2026gprefiner,
+  author    = {Zhirong Shen and Rui Huang and Chang Zou and Shikang Zheng and Jiacheng Liu and Peiliang Cai and Zhengyi Shi and Yaosong Du and Liang Feng and Xiaobing Tu and Jinkui Ren and Xiantao Zhang and Linfeng Zhang},
+  title     = {Accelerating Diffusion Transformers with {G}aussian Process Rectified Feature Cache},
+  booktitle = {European Conference on Computer Vision (ECCV)},
+  year      = {2026}
+}
+@article{rajabi2026speckcast,
+  author  = {Javad Rajabi and Hakki Can Karaimer and David B. Lindell and Babak Taati and Michael S. Brown},
+  title   = {{SpecKCast}: Spectral {K}alman Forecasting for Diffusion Acceleration},
+  journal = {arXiv preprint arXiv:2610.26837},
+  year    = {2026}
+}
+
+%% ---------------- Filtering, smoothing, probabilistic numerics ----------------
+@article{kalman1960,
+  author  = {Rudolph E. Kalman},
+  title   = {A New Approach to Linear Filtering and Prediction Problems},
+  journal = {Journal of Basic Engineering},
+  volume  = {82},
+  number  = {1},
+  pages   = {35--45},
+  year    = {1960}
+}
+@article{rauch1965rts,
+  author  = {H. E. Rauch and F. Tung and C. T. Striebel},
+  title   = {Maximum Likelihood Estimates of Linear Dynamic Systems},
+  journal = {AIAA Journal},
+  volume  = {3},
+  number  = {8},
+  pages   = {1445--1450},
+  year    = {1965}
+}
+@book{barshalom2001estimation,
+  author    = {Yaakov Bar-Shalom and X. Rong Li and Thiagalingam Kirubarajan},
+  title     = {Estimation with Applications to Tracking and Navigation},
+  publisher = {Wiley},
+  year      = {2001}
+}
+@article{gardner1985damped,
+  author  = {Everette S. Gardner and Ed McKenzie},
+  title   = {Forecasting Trends in Time Series},
+  journal = {Management Science},
+  volume  = {31},
+  number  = {10},
+  pages   = {1237--1246},
+  year    = {1985}
+}
+@article{mehra1972adaptive,
+  author  = {Raman K. Mehra},
+  title   = {Approaches to Adaptive Filtering},
+  journal = {IEEE Transactions on Automatic Control},
+  volume  = {17},
+  number  = {5},
+  pages   = {693--698},
+  year    = {1972}
+}
+@book{sarkka2013bayesian,
+  author    = {Simo S{\"a}rkk{\"a}},
+  title     = {Bayesian Filtering and Smoothing},
+  publisher = {Cambridge University Press},
+  year      = {2013}
+}
+@article{schober2019probabilistic,
+  author  = {Michael Schober and Simo S{\"a}rkk{\"a} and Philipp Hennig},
+  title   = {A Probabilistic Model for the Numerical Solution of Initial Value Problems},
+  journal = {Statistics and Computing},
+  volume  = {29},
+  number  = {1},
+  pages   = {99--122},
+  year    = {2019}
+}
+@article{tronarp2019probabilistic,
+  author  = {Filip Tronarp and Hans Kersting and Simo S{\"a}rkk{\"a} and Philipp Hennig},
+  title   = {Probabilistic Solutions to Ordinary Differential Equations as Nonlinear {B}ayesian Filtering: A New Perspective},
+  journal = {Statistics and Computing},
+  volume  = {29},
+  number  = {6},
+  pages   = {1297--1315},
+  year    = {2019}
+}
+@book{trefethen2019approximation,
+  author    = {Lloyd N. Trefethen},
+  title     = {Approximation Theory and Approximation Practice, Extended Edition},
+  publisher = {SIAM},
+  year      = {2019}
+}
+@book{wiener1949extrapolation,
+  author    = {Norbert Wiener},
+  title     = {Extrapolation, Interpolation, and Smoothing of Stationary Time Series},
+  publisher = {MIT Press},
+  year      = {1949}
+}
+@article{hoerl1970ridge,
+  author  = {Arthur E. Hoerl and Robert W. Kennard},
+  title   = {Ridge Regression: Biased Estimation for Nonorthogonal Problems},
+  journal = {Technometrics},
+  volume  = {12},
+  number  = {1},
+  pages   = {55--67},
+  year    = {1970}
+}
+
+%% ---------------- Benchmarks and metrics ----------------
+@inproceedings{huang2024vbench,
+  author    = {Ziqi Huang and Yinan He and Jiashuo Yu and Fan Zhang and Chenyang Si and Yuming Jiang and Yuanhan Zhang and Tianxing Wu and Qingyang Jin and Nattapol Chanpaisit and Yaohui Wang and Xinyuan Chen and Limin Wang and Dahua Lin and Yu Qiao and Ziwei Liu},
+  title     = {{VBench}: Comprehensive Benchmark Suite for Video Generative Models},
+  booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  pages     = {21807--21818},
+  year      = {2024}
+}
+@inproceedings{lin2014coco,
+  author    = {Tsung-Yi Lin and Michael Maire and Serge Belongie and James Hays and Pietro Perona and Deva Ramanan and Piotr Doll{\'a}r and C. Lawrence Zitnick},
+  title     = {Microsoft {COCO}: Common Objects in Context},
+  booktitle = {European Conference on Computer Vision (ECCV)},
+  pages     = {740--755},
+  year      = {2014}
+}
+@article{wang2004ssim,
+  author  = {Zhou Wang and Alan C. Bovik and Hamid R. Sheikh and Eero P. Simoncelli},
+  title   = {Image Quality Assessment: From Error Visibility to Structural Similarity},
+  journal = {IEEE Transactions on Image Processing},
+  volume  = {13},
+  number  = {4},
+  pages   = {600--612},
+  year    = {2004}
+}
+@inproceedings{zhang2018lpips,
+  author    = {Richard Zhang and Phillip Isola and Alexei A. Efros and Eli Shechtman and Oliver Wang},
+  title     = {The Unreasonable Effectiveness of Deep Features as a Perceptual Metric},
+  booktitle = {IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
+  pages     = {586--595},
+  year      = {2018}
+}
+
+%% ---------------- Mechanical engineering: design, structures, fluids ----------------
+@article{bendsoe1988generating,
+  author  = {Martin Philip Bends{\o}e and Noboru Kikuchi},
+  title   = {Generating Optimal Topologies in Structural Design Using a Homogenization Method},
+  journal = {Computer Methods in Applied Mechanics and Engineering},
+  volume  = {71},
+  number  = {2},
+  pages   = {197--224},
+  year    = {1988}
+}
+@article{sigmund2001,
+  author  = {Ole Sigmund},
+  title   = {A 99 Line Topology Optimization Code Written in {Matlab}},
+  journal = {Structural and Multidisciplinary Optimization},
+  volume  = {21},
+  number  = {2},
+  pages   = {120--127},
+  year    = {2001}
+}
+@article{andreassen2011efficient,
+  author  = {Erik Andreassen and Anders Clausen and Mattias Schevenels and Boyan S. Lazarov and Ole Sigmund},
+  title   = {Efficient Topology Optimization in {MATLAB} Using 88 Lines of Code},
+  journal = {Structural and Multidisciplinary Optimization},
+  volume  = {43},
+  number  = {1},
+  pages   = {1--16},
+  year    = {2011}
+}
+@article{regenwetter2022deep,
+  author  = {Lyle Regenwetter and Amin Heyrani Nobari and Faez Ahmed},
+  title   = {Deep Generative Models in Engineering Design: A Review},
+  journal = {Journal of Mechanical Design},
+  volume  = {144},
+  number  = {7},
+  pages   = {071704},
+  year    = {2022}
+}
+@inproceedings{maze2023topodiff,
+  author    = {Fran{\c{c}}ois Maz{\'e} and Faez Ahmed},
+  title     = {Diffusion Models Beat {GANs} on Topology Optimization},
+  booktitle = {AAAI Conference on Artificial Intelligence},
+  year      = {2023}
+}
+@inproceedings{giannone2023aligning,
+  author    = {Giorgio Giannone and Akash Srivastava and Ole Winther and Faez Ahmed},
+  title     = {Aligning Optimization Trajectories with Diffusion Models for Constrained Design Generation},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2023}
+}
+@article{nobari2024nito,
+  author  = {Amin Heyrani Nobari and Giorgio Giannone and Lyle Regenwetter and Faez Ahmed},
+  title   = {{NITO}: Neural Implicit Fields for Resolution-Free Topology Optimization},
+  journal = {arXiv preprint arXiv:2402.05073},
+  year    = {2024}
+}
+@inproceedings{nobari2025oat,
+  author    = {Amin Heyrani Nobari and Lyle Regenwetter and Cyril Picard and Ligong Han and Faez Ahmed},
+  title     = {Optimize Any Topology: A Foundation Model for Shape- and Resolution-Free Structural Topology Optimization},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  note      = {arXiv:2510.23667},
+  year      = {2025}
+}
+@article{xu2024brepgen,
+  author  = {Xiang Xu and Joseph G. Lambourne and Pradeep Kumar Jayaraman and Zhengqing Wang and Karl D. D. Willis and Yasutaka Furukawa},
+  title   = {{BrepGen}: A {B}-rep Generative Diffusion Model with Structured Latent Geometry},
+  journal = {ACM Transactions on Graphics (SIGGRAPH)},
+  volume  = {43},
+  number  = {4},
+  year    = {2024}
+}
+@article{bastek2023inverse,
+  author  = {Jan-Hendrik Bastek and Dennis M. Kochmann},
+  title   = {Inverse Design of Nonlinear Mechanical Metamaterials via Video Denoising Diffusion Models},
+  journal = {Nature Machine Intelligence},
+  volume  = {5},
+  pages   = {1466--1475},
+  year    = {2023}
+}
+@article{raissi2019pinn,
+  author  = {Maziar Raissi and Paris Perdikaris and George Em Karniadakis},
+  title   = {Physics-Informed Neural Networks: A Deep Learning Framework for Solving Forward and Inverse Problems Involving Nonlinear Partial Differential Equations},
+  journal = {Journal of Computational Physics},
+  volume  = {378},
+  pages   = {686--707},
+  year    = {2019}
+}
+@inproceedings{li2021fno,
+  author    = {Zongyi Li and Nikola Kovachki and Kamyar Azizzadenesheli and Burigede Liu and Kaushik Bhattacharya and Andrew Stuart and Anima Anandkumar},
+  title     = {Fourier Neural Operator for Parametric Partial Differential Equations},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2021}
+}
+@article{shu2023physics,
+  author  = {Dule Shu and Zijie Li and Amir Barati Farimani},
+  title   = {A Physics-Informed Diffusion Model for High-Fidelity Flow Field Reconstruction},
+  journal = {Journal of Computational Physics},
+  volume  = {478},
+  pages   = {111972},
+  year    = {2023}
+}
+@article{kohl2023benchmarking,
+  author  = {Georg Kohl and Li-Wei Chen and Nils Thuerey},
+  title   = {Benchmarking Autoregressive Conditional Diffusion Models for Turbulent Flow Simulation},
+  journal = {arXiv preprint arXiv:2309.01745},
+  year    = {2023}
+}
+@inproceedings{huang2024diffusionpde,
+  author    = {Jiahe Huang and Guandao Yang and Zichen Wang and Jeong Joon Park},
+  title     = {{DiffusionPDE}: Generative {PDE}-Solving Under Partial Observation},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  note      = {arXiv:2406.17763},
+  year      = {2024}
+}
+@inproceedings{chung2023dps,
+  author    = {Hyungjin Chung and Jeongsol Kim and Michael T. McCann and Marc L. Klasky and Jong Chul Ye},
+  title     = {Diffusion Posterior Sampling for General Noisy Inverse Problems},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2023}
+}
+
+%% ---------------- Additional entries added by chapter authors (below) ----------------

@@ -1,0 +1,62 @@
+\chapter{Code}\label{app:code}
+
+This appendix describes the organisation of the code written in this project and reproduces its key parts. The listings are included directly from the source files (copied unchanged into the \texttt{code/} folder of the thesis), so they are exact excerpts; the line numbers are those of the original files.
+
+\section{Repository layout}\label{sec:app-layout}
+
+Both code releases follow the layout of SeaCache: one self-contained folder per backbone, so that each folder can be copied into the corresponding official repository (HunyuanVideo, Wan2.1) or run directly (diffusers models).
+
+\begin{lstlisting}[language={},numbers=none]
+ReSpect/                          ReSPect release
+  FLUX/  HunyuanVideo/  Wan2.1/
+    respect_generate.py           patched transformer forward + generation script
+    spectrum_forecaster.py        Chebyshev ridge + discrete Taylor forecaster
+    util_seacache.py              SEA (Wiener) filter, relative L1 distance
+
+KalSea-v0.2/                      KalSea release
+  FLUX/  FLUX2/  HunyuanVideo/  Wan2.1/  MiniMax-H3/
+    kalsea_generate.py            generation script (switches --no_pcgs/--reuse/--no_cache/--delta)
+    kalsea_forecaster.py          damped-trend Kalman residual forecaster
+    pcgs.py                       predictor-corrector gap smoothing (FLUX, FLUX2, MiniMax-H3)
+    kalsea_hunyuan.py, kalsea_wan.py   gate + forecaster + PCGS for the official video repos
+    util_seacache.py              SEA filter (identical in every folder)
+
+mech_apps/cache/                  applications of Chapter 6
+  cachecore.py                    shared gate, fillers and PCGS smoother
+  oat_cache.py                    Optimize Any Topology (topology optimisation)
+  pde_cache.py                    DiffusionPDE (bounded Navier-Stokes)
+\end{lstlisting}
+
+\section{The SEA filter}\label{sec:app-sea}
+The filter of \cref{eq:bg-wiener,eq:bg-norm}: a separable Wiener gain per axis under a power-law prior, normalised to unit mean gain, applied in the Fourier domain. The gate's distance is the relative $\ell_1$ change.
+
+\lstinputlisting[firstline=23,lastline=109,firstnumber=23,caption={SEA filter (\texttt{util\_seacache.py}).},label={lst:app-sea}]{code/util_seacache.py}
+\lstinputlisting[firstline=196,lastline=199,firstnumber=196,caption={Relative $\ell_1$ distance (\texttt{util\_seacache.py}).},label={lst:app-rell1}]{code/util_seacache.py}
+
+\section{The gate in the patched FLUX.1 forward}\label{sec:app-gate}
+The accumulate-and-reset rule of \cref{eq:bg-gate} as implemented in KalSea's patched \texttt{FluxTransformer2DModel.forward}: the first block's modulated input is laid out on its token grid, SEA-filtered for the current step, and compared with the stored reference, which is refreshed at every step.
+
+\lstinputlisting[firstline=102,lastline=142,firstnumber=102,caption={SEA gate in the patched FLUX.1 forward (\texttt{KalSea-v0.2/FLUX/kalsea\_generate.py}).},label={lst:app-gate}]{code/kalsea_generate_flux.py}
+
+\section{The ReSPect forecaster}\label{sec:app-respect}
+The Chebyshev design matrix (three-term recurrence), the ridge fit by Cholesky factorisation and the forecast, the first-order discrete Taylor step, and the residual forecaster that blends the two with $w=0.5$ after the warm-up (\cref{sec:respect-cheb,sec:respect-blend}).
+
+\lstinputlisting[firstline=201,lastline=213,firstnumber=201,caption={Chebyshev design matrix (\texttt{spectrum\_forecaster.py}).},label={lst:app-cheb}]{code/spectrum_forecaster.py}
+\lstinputlisting[firstline=127,lastline=178,firstnumber=127,caption={Ridge fit and Chebyshev forecast (\texttt{spectrum\_forecaster.py}).},label={lst:app-ridge}]{code/spectrum_forecaster.py}
+\lstinputlisting[firstline=239,lastline=262,firstnumber=239,caption={Discrete Taylor step (\texttt{spectrum\_forecaster.py}).},label={lst:app-taylor}]{code/spectrum_forecaster.py}
+\lstinputlisting[firstline=290,lastline=349,firstnumber=290,caption={Residual forecaster with blend and warm-up (\texttt{spectrum\_forecaster.py}).},label={lst:app-srf}]{code/spectrum_forecaster.py}
+
+\section{The KalSea forecaster}\label{sec:app-kalsea}
+Prediction at every step with the damped-trend transition and integrated-Wiener process noise (\cref{eq:kalsea-predict,eq:kalsea-AQ}), the Kalman update on computed steps with online adaptation of the process-noise intensity (\cref{eq:kalsea-update}), and the forecast on skipped steps.
+
+\lstinputlisting[firstline=249,lastline=316,firstnumber=249,caption={Kalman predict / update / forecast (\texttt{KalSea-v0.2/FLUX2/kalsea\_forecaster.py}).},label={lst:app-kalman}]{code/kalsea_forecaster.py}
+
+\section{Predictor--corrector gap smoothing}\label{sec:app-pcgs}
+The smoother gains of \cref{eq:kalsea-gain} computed from the filter's own prior covariances and transition matrices, the smoothed residuals of \cref{eq:kalsea-smooth}, the re-integration of \cref{eq:kalsea-reint} with the scheduler's sigmas, the continuation of \cref{eq:kalsea-cont} and the gate refresh.
+
+\lstinputlisting[firstline=71,lastline=146,firstnumber=71,caption={PCGS smoother and correction (\texttt{KalSea-v0.2/FLUX/pcgs.py}).},label={lst:app-pcgs}]{code/pcgs.py}
+
+\section{Caching core for the engineering applications}\label{sec:app-core}
+The shared core of \cref{sec:app-impl}: the gate, the residual streams with their fillers (imported unchanged from the two releases), and a generic PCGS smoother for samplers owned by the application driver.
+
+\lstinputlisting[caption={Caching core for the applications (\texttt{mech\_apps/cache/cachecore.py}).},label={lst:app-core}]{code/cachecore.py}
