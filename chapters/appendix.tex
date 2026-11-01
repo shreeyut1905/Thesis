@@ -34,7 +34,7 @@ The filter of \cref{eq:bg-wiener,eq:bg-norm}: a separable Wiener gain per axis u
 \lstinputlisting[firstline=196,lastline=199,firstnumber=196,caption={Relative $\ell_1$ distance (\texttt{util\_seacache.py}).},label={lst:app-rell1}]{code/util_seacache.py}
 
 \section{The gate in the patched FLUX.1 forward}\label{sec:app-gate}
-The accumulate-and-reset rule of \cref{eq:bg-gate} as implemented in KalSea's patched \texttt{FluxTransformer2DModel.forward}: the first block's modulated input is laid out on its token grid, SEA-filtered for the current step, and compared with the stored reference, which is refreshed at every step.
+The accumulate-and-reset rule of \cref{eq:bg-gate} as implemented in KalSea's patched forward of \texttt{Flux\-Transformer\-2D\-Model}: the first block's modulated input is laid out on its token grid, SEA-filtered for the current step, and compared with the stored reference, which is refreshed at every step.
 
 \lstinputlisting[firstline=102,lastline=142,firstnumber=102,caption={SEA gate in the patched FLUX.1 forward (\texttt{KalSea-v0.2/FLUX/kalsea\_generate.py}).},label={lst:app-gate}]{code/kalsea_generate_flux.py}
 

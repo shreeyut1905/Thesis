@@ -26,5 +26,7 @@ Requires a TeX Live installation with `newtx`, `tex-gyre`, `algorithmicx`, `list
 
 ## Status
 
-Chapter 6 (applications) has its integration implemented but **not yet run**; every result entry there is marked
-`[TBD]` (macro `\TBD` in `main.tex`) and will be filled in from the runs.
+Chapter 6 (applications): the DiffusionPDE results (bounded Navier-Stokes, forward and inverse, both released cases,
+ReSPect and KalSea at two budgets) are in. The OAT evaluation (full 5000-problem OpenTO test split, 10 samples each,
+OAT's own FEA) is still running; its table entries are marked `[TBD]` (macro `\TBD` in `main.tex`). Baseline rows of the
+uncached models are copied from the original papers.

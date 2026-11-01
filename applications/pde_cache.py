@@ -41,7 +41,7 @@ class SplitEDM:
         self.net, self.u = net, net.model
         self.enc_items = list(self.u.enc.items())
         self.dec_items = list(self.u.dec.items())
-        res = self.u.img_resolution
+        res = self.net.img_resolution
         self.k_conv, self.k_b0, self.k_b1 = f"{res}x{res}_conv", f"{res}x{res}_block0", f"{res}x{res}_block1"
         assert self.enc_items[0][0] == self.k_conv and self.enc_items[1][0] == self.k_b0
 
@@ -61,7 +61,7 @@ class SplitEDM:
     def embed(self, x, sigma):
         c_skip, c_out, c_in, c_noise = self.precond(sigma)
         e = self.emb(c_noise)
-        h0 = self.u.enc[self.k_conv]((c_in * x).float())
+        h0 = self.u.enc[self.k_conv](c_in * x.float())       # same arithmetic as EDMPrecond (cast, then scale)
         h1 = self.u.enc[self.k_b0](h0, e)
         return dict(e=e, skips=[h0, h1], h_in=h1, c_skip=c_skip, c_out=c_out)
 
@@ -92,7 +92,7 @@ class SplitEDM:
         raise RuntimeError("no output layers found")
 
     def out(self, x_in, h_out, ctx):
-        res = self.u.img_resolution
+        res = self.net.img_resolution
         F_x = self.u.dec[f"{res}x{res}_aux_conv"](silu(self.u.dec[f"{res}x{res}_aux_norm"](h_out)))
         return ctx["c_skip"] * x_in + ctx["c_out"] * F_x.float()
 
@@ -115,9 +115,9 @@ def run(split, cfg, method, delta, N, seed, device, a_GT, u_GT, mask_a, mask_u):
         """mode: 'compute' (run F, return residual), 'skip' (forecast), 'fixed' (given residual)."""
         ctx = split.embed(x, s.reshape(-1, 1, 1, 1).float())
         if mode == "compute":
-            h_out = split.body(ctx)
-            r = h_out - ctx["h_in"]
-        elif mode == "skip":
+            h_out = split.body(ctx)                         # computed: Out(h_out) exactly as the original network
+            return split.out(x.float(), h_out, ctx).to(torch.float64), h_out - ctx["h_in"], ctx
+        if mode == "skip":
             r = streams[k].forecast(i, ctx=None).to(ctx["h_in"].dtype)
         else:
             r = r_fixed
@@ -195,6 +195,7 @@ def run(split, cfg, method, delta, N, seed, device, a_GT, u_GT, mask_a, mask_u):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--case", type=int, default=1)
+    ap.add_argument("--problem", type=str, default="forward", choices=["forward", "inverse"])
     ap.add_argument("--steps", type=int, default=2000)
     ap.add_argument("--methods", type=str, default="reference,seacache,respect,kalsea_nopcgs,kalsea")
     ap.add_argument("--deltas", type=str, default="0.05,0.1")
@@ -213,17 +214,25 @@ def main():
     u_GT = torch.tensor(v[0, :, :, 8], dtype=torch.float64, device=device)
     center = (int(np.load(os.path.join(d, "cx.npy"))[0]), int(np.load(os.path.join(d, "cy.npy"))[0]))
     radius = int(np.load(os.path.join(d, "r.npy"))[0])
-    mask_a, _ = random_index_and_cylinder(center, radius, 0.01, 128, seed=1, device=device)
-    mask_u, _ = cylinder_index(center, radius, 128, device=device)
+    if args.problem == "forward":     # sparse (1%) observations of a + cylinder; u: cylinder only (generate_ns_bounded.py)
+        mask_a, _ = random_index_and_cylinder(center, radius, 0.01, 128, seed=1, device=device)
+        mask_u, _ = cylinder_index(center, radius, 128, device=device)
+    else:                             # inverse: a: cylinder only; sparse (1%) observations of u + cylinder
+        mask_a, _ = cylinder_index(center, radius, 128, device=device)
+        mask_u, _ = random_index_and_cylinder(center, radius, 0.01, 128, seed=0, device=device)
     for method in args.methods.split(","):
         for delta in ([0.0] if method == "reference" else [float(x) for x in args.deltas.split(",")]):
+            if os.path.exists(os.path.join(args.out, f"{args.problem}_case{args.case}_{method}_d{delta:g}.pt")):
+                continue
             torch.cuda.synchronize(); t0 = time.time()
             a_f, u_f, info = run(split, cfg, method, delta, args.steps, args.seed, device, a_GT, u_GT, mask_a, mask_u)
             torch.cuda.synchronize(); lat = time.time() - t0
             err_u = float(torch.norm(u_f.squeeze() - u_GT.cpu()) / torch.norm(u_GT.cpu()))
             err_a = float(torch.norm(a_f.squeeze() - a_GT.cpu()) / torch.norm(a_GT.cpu()))
-            tag = f"case{args.case}_{method}_d{delta:g}"
-            torch.save(dict(a=a_f, u=u_f, info=info, latency=lat, err_a=err_a, err_u=err_u), os.path.join(args.out, tag + ".pt"))
+            tag = f"{args.problem}_case{args.case}_{method}_d{delta:g}"
+            torch.save(dict(a=a_f, u=u_f, info=info, latency=lat, err_a=err_a, err_u=err_u, a_GT=a_GT.cpu(), u_GT=u_GT.cpu(),
+                            mask_a=mask_a.cpu(), mask_u=mask_u.cpu(), problem=args.problem, case=args.case, method=method,
+                            delta=delta), os.path.join(args.out, tag + ".pt"))
             print(f"{tag}: nfe={info['nfe']} lat={lat:.1f}s err_a={err_a:.4f} err_u={err_u:.4f} corr={info['n_corr']}", flush=True)
 
 

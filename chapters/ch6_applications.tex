@@ -1,50 +1,47 @@
 \chapter{Applications in Mechanical Engineering}\label{ch:applications}
 
-ReSPect and KalSea were developed and evaluated on text-to-image and text-to-video models. Diffusion models, however, are increasingly used as engineering tools (\cref{sec:lit-mech}), and in engineering the sampling cost is often more critical than in media generation: a designer explores many load cases, an optimisation loop calls the generator repeatedly, and physics-guided samplers use hundreds to thousands of steps. This chapter carries both caches over to two recent open-weight diffusion models from mechanical engineering:
+ReSPect and KalSea were developed and evaluated on text-to-image and text-to-video models. Diffusion models, however, are increasingly used as engineering tools (\cref{sec:lit-mech}), and in engineering the sampling cost is often more critical than in media generation: a designer explores many load cases, an optimisation loop calls the generator repeatedly, and physics-guided samplers use hundreds to thousands of steps. This chapter applies both caches to two recent open-weight diffusion models from mechanical engineering:
 \begin{enumerate}
   \item \textbf{Structural topology optimisation} with \emph{Optimize Any Topology} (OAT, NeurIPS 2025) \citep{nobari2025oat}, a conditional latent diffusion model that generates minimum-compliance structures for arbitrary domains, loads, supports and volume fractions;
-  \item \textbf{Flow-field reconstruction around a cylinder} with \emph{DiffusionPDE} (NeurIPS 2024) \citep{huang2024diffusionpde}, which solves a Navier--Stokes forward problem from sparse observations by guiding a diffusion sampler with the observation loss and a PDE residual.
+  \item \textbf{Flow-field reconstruction around a cylinder} with \emph{DiffusionPDE} (NeurIPS 2024) \citep{huang2024diffusionpde}, which solves Navier--Stokes forward and inverse problems from 1\% sparse observations by guiding a diffusion sampler with the observation loss and a PDE residual.
 \end{enumerate}
-Both models were selected because their code and weights are public, because they represent the two classical pillars of mechanical engineering (solid and fluid mechanics), and because they stress the caches in different ways: OAT uses a short DDIM schedule on a small latent, whereas DiffusionPDE runs 2000 guided second-order steps whose guidance gradients are back-propagated through the network.
+Both models were selected because their code and weights are public, because they represent the two classical pillars of mechanical engineering (solid and fluid mechanics), and because they stress the caches in opposite ways: OAT samples with only 20 DDIM steps on a small latent, whereas DiffusionPDE runs 2000 guided second-order steps whose guidance gradients are back-propagated through the network.
 
-\begin{center}
-\fcolorbox{BrickRed}{white}{\parbox{0.92\textwidth}{\small\textbf{Status of this chapter.} The integration of both caches into both models has been designed and implemented (\cref{sec:app-status}). The full-scale evaluation, and the one or two worked examples per application that will illustrate it, are still to be run. All result entries are therefore marked \TBD\ and will be filled in from the logged runs; no numbers in this chapter are estimates.}}
-\end{center}
+\paragraph{Protocol.} The models are used exactly as released, with their own samplers, settings, test data and evaluation code. The rows of the original (uncached) models in the result tables are \emph{copied from the original papers}; they were not re-run. Only the cached samplers (ReSPect and KalSea) were run, on eight NVIDIA B200 GPUs. Before any result was produced, the cached samplers were validated against exact invariants (\cref{sec:app-validation}).
 
 %% ------------------------------------------------------------------------------------------------
 \section{Carrying the caches over to engineering denoisers}\label{sec:app-general}
 
-ReSPect and KalSea rest on three ingredients: a split of the denoiser into a cheap embedding, an expensive block stack and cheap output layers (\cref{sec:bg-dit}); a gate input that is available before the block stack runs (\cref{sec:bg-sea}); and, for PCGS, a sampler update that can be replayed with corrected network outputs (\cref{sec:kalsea-pcgs}). Engineering diffusion models often differ from the media DiTs in all three respects: their denoisers are convolutional U-Nets, they use DDPM/DDIM or EDM samplers, and they may add guidance gradients. This section describes how each ingredient generalises.
+ReSPect and KalSea rest on three ingredients: a split of the denoiser into a cheap embedding, an expensive block stack and cheap output layers (\cref{sec:bg-dit}); a gate input that is available before the block stack runs (\cref{sec:bg-sea}); and, for PCGS, a sampler update that can be replayed with corrected network outputs (\cref{sec:kalsea-pcgs}). Engineering diffusion models differ from the media DiTs in all three respects: their denoisers are convolutional U-Nets, they use DDIM or EDM samplers with classifier-free or gradient guidance. This section describes how each ingredient generalises.
 
 \subsection{Residual caching on a U-Net}
 A U-Net has no single residual stream: the encoder passes skip connections to the decoder, and the channel width changes along the network. The block-stack residual is nevertheless well defined if $\Emb$ is chosen as the layers up to the first full-resolution feature map, and $\Out$ as the layers after the last full-resolution feature map of the decoder, provided both maps have the same width. The block stack $F$ then contains \emph{all} down-sampling, middle and up-sampling blocks together with their internal skip connections, and on a skipped step every one of them is bypassed:
 \begin{equation}
   h^{\mathrm{in}} = \Emb(x), \qquad h^{\mathrm{out}} = F(h^{\mathrm{in}}, c), \qquad r = h^{\mathrm{out}}-h^{\mathrm{in}}, \qquad \hat v = \Out(h^{\mathrm{in}}+\hat r) .
 \end{equation}
-For OAT's U-Net, $\Emb$ is the input convolution and $\Out$ the final group normalisation, SiLU and output convolution; both ends have 320 channels at the $64\times64$ latent resolution. For DiffusionPDE's DDPM++ U-Net \citep{karras2022edm}, the input convolution has 128 channels but the decoder output has 256, so $\Emb$ also includes the first full-resolution residual block ($128\to256$ channels); this costs a few percent of one evaluation but keeps the residual formulation, and with it the error identity \cref{eq:bg-error}, exact.
+For OAT's U-Net, $\Emb$ is the input convolution and $\Out$ the final group normalisation, SiLU and output convolution; both ends have 320 channels at the $64\times64$ latent resolution. For DiffusionPDE's DDPM++ U-Net \citep{karras2022edm}, the input convolution has 128 channels but the decoder output has 256, so $\Emb$ also includes the first full-resolution residual block ($128\to256$ channels); this keeps the residual formulation, and with it the error identity \cref{eq:bg-error}, exact. On computed steps the output layers receive $h^{\mathrm{out}}$ itself rather than $h^{\mathrm{in}}+r$, and residuals are kept in float32, so that a computed step reproduces the original network bit for bit.
 
 \subsection{Gate input}
-U-Net residual blocks inject the timestep (and, in OAT, the problem) embedding inside the block rather than through adaLN. The gate therefore reads the \emph{timestep-modulated input of the first block of $F$}: the output of its first convolution with the projected embedding added, as in
+U-Net residual blocks inject the timestep (and, in OAT, the problem) embedding inside the block rather than through adaLN. The gate therefore reads the \emph{timestep-modulated input of the first block of $F$}: the output of its first convolution with the projected embedding added,
 \begin{equation}
   I = \mathrm{conv}_1\big(\mathrm{SiLU}(\mathrm{GN}(h^{\mathrm{in}}))\big) + W_{e}\,\mathrm{SiLU}(e),
 \end{equation}
 for diffusers' ResNet blocks (OAT), and the normalised, embedding-shifted input for EDM's blocks (DiffusionPDE). This costs one convolution at full resolution, a small fraction of the block stack. The input is laid out on its spatial grid and filtered with the SEA filter of \cref{sec:bg-sea} with $\beta=2$, since both applications produce two-dimensional fields.
 
 \subsection{Signal and noise coefficients}
-The SEA filter needs $(a_t,b_t)$ for the current step. For OAT's variance-preserving DDIM schedule these are $(\sqrt{\bar\alpha_t},\sqrt{1-\bar\alpha_t})$, read from the scheduler at the current timestep. For EDM's variance-exploding parametrisation $x = x_0+\sigma\epsilon$, they are $(1,\sigma)$, or equivalently $(1/\sqrt{1+\sigma^2},\sigma/\sqrt{1+\sigma^2})$; because of the gain normalisation of \cref{eq:bg-norm}, a common scaling of $(a_t,b_t)$ does not change the filter.
+The SEA filter needs $(a_t,b_t)$ for the current step. For OAT's variance-preserving DDIM schedule these are $(\sqrt{\bar\alpha_t},\sqrt{1-\bar\alpha_t})$, read from the scheduler at the current timestep. For EDM's parametrisation $x = x_0+\sigma\epsilon$ they are $(1/\sqrt{1+\sigma^2},\sigma/\sqrt{1+\sigma^2})$; because of the gain normalisation of \cref{eq:bg-norm}, a common scaling of $(a_t,b_t)$ does not change the filter.
 
-\subsection{The predictor--corrector for DDIM and guided Heun samplers}
-PCGS needs to replay the skipped gap with corrected outputs and to continue from the corrected latent.
+\subsection{Classifier-free guidance and the corrector}
 \begin{itemize}
-  \item \textbf{DDIM (OAT).} The deterministic DDIM update is affine in the network output for every output parametrisation (\cref{eq:bg-ddim}), including OAT's $v$-prediction. The gap is replayed with the scheduler's own \texttt{step} function, which is stateless for DDIM, and the continuation of \cref{eq:kalsea-cont} generalises to $v'_b = \Out(\Emb(x'_b)+r_b) + (A_b/B_b)(x'_b-x_b)$ for $x_{t'} = A_b x_b + B_b v$.
-  \item \textbf{Guided Heun (DiffusionPDE).} Each step makes two network calls, at $(x_i,\sigma_i)$ and at the Euler point $(\tilde x_{i+1},\sigma_{i+1})$, and then subtracts guidance gradients that are back-propagated through both calls. The update is no longer linear in the outputs. Because our harness owns the sampling loop, PCGS replays the complete guided Heun update of every skipped step with the smoothed residuals of both calls, and then recomputes step $b$ from the corrected latent with the residuals observed at $b$ (no additional block-stack evaluation). The two calls of a step form two residual streams with their own forecasters, like the conditional and unconditional streams of Wan2.1, and the gate decides once per step.
+  \item \textbf{DDIM with classifier-free guidance (OAT).} Every step evaluates the U-Net twice, conditioned on the problem ($c$) and unconditioned ($u$), and the DDIM update uses the guided output $u+g(c-u)$ with $g=2$. As for Wan2.1 in KalSea, the two calls are two residual streams with their own forecasters under one shared gate, which reads the conditional stream. The DDIM update is affine in the guided output (\cref{eq:bg-ddim}), so PCGS replays the gap with the scheduler's own \texttt{step} function, using the smoothed residuals of both streams, and continues from the corrected latent.
+  \item \textbf{Guided Heun (DiffusionPDE).} Each step makes two network calls, at $(x_i,\sigma_i)$ and at the Euler point $(\tilde x_{i+1},\sigma_{i+1})$, and then subtracts guidance gradients that are back-propagated through both calls. The update is no longer linear in the outputs. Because our harness owns the sampling loop, PCGS replays the complete guided Heun update of every skipped step with the smoothed residuals of both calls, and then recomputes step $b$ from the corrected latent with the residuals observed at $b$ (no additional block-stack evaluation). The two calls of a step are again two residual streams, and the gate decides once per step.
 \end{itemize}
 When the harness owns the loop, continuing from the corrected latent directly is mathematically identical to returning the velocity offset of \cref{eq:kalsea-cont}; the offset form is only needed when the cache must leave a third-party sampler unchanged, as in the KalSea release.
 
-\paragraph{Guidance on skipped steps.} In DiffusionPDE the guidance gradient $\nabla_{x}\mathcal L(D(x))$ is taken through the denoiser. On a skipped step the forecast residual is a constant, so the gradient flows through $\Emb$, $\Out$ and the EDM skip connection $c_{\mathrm{skip}}x$ only. This approximation of the guidance Jacobian is part of what the experiments must quantify; it also means that caching saves both the forward \emph{and} the backward pass through the block stack on skipped steps.
+\paragraph{Guidance on skipped steps.} In DiffusionPDE the guidance gradient $\nabla_{x}\mathcal L(D(x))$ is taken through the denoiser. On a skipped step the forecast residual is a constant, so the gradient flows through $\Emb$, $\Out$ and the EDM skip connection $c_{\mathrm{skip}}x$ only. Caching therefore saves both the forward \emph{and} the backward pass through the block stack on skipped steps, but it also approximates the guidance Jacobian; the experiments below show that the closed loop of KalSea is essential in this setting.
 
 \subsection{Implementation}\label{sec:app-impl}
-Both applications share one caching core (\texttt{cachecore.py}): the SEA gate (accumulate-and-reset with the reference refreshed every step), the three fillers, and the PCGS smoother. The fillers are imported \emph{unchanged} from the two code releases: \texttt{SpectrumResidualForecaster} from ReSPect ($M=4$, $K=100$, $\lambda=0.1$, $w=0.5$, warm-up 4) and the per-element, calibration-free \texttt{KalSeaForecaster} from KalSea-v0.2 ($\tau=0.5$, $R=10^{-3}$, step-index time). The smoother gains are computed exactly as in the KalSea release. Two drivers, \texttt{oat\_cache.py} and \texttt{pde\_cache.py}, split the respective denoisers as described above and own the sampling loops. \Cref{tab:app-mapping} summarises the mapping.
+Both applications share one caching core (\texttt{cachecore.py}, \cref{lst:app-core}): the SEA gate (accumulate-and-reset with the reference refreshed every step), the fillers and the PCGS smoother. The fillers are imported \emph{unchanged} from the two code releases: \texttt{Spectrum\-Residual\-Forecaster} from ReSPect ($M=4$, $K=100$, $\lambda=0.1$, $w=0.5$, warm-up 4) and the per-element, calibration-free \texttt{KalSea\-Forecaster} from KalSea-v0.2 ($\tau=0.5$, $R=10^{-3}$, step-index time). The smoother gains are computed exactly as in the KalSea release. Two drivers, \texttt{oat\_cache.py} and \texttt{pde\_cache.py}, split the respective denoisers and own the sampling loops. \Cref{tab:app-mapping} summarises the mapping.
 
 \begin{table}[t]
   \centering
@@ -55,17 +52,25 @@ Both applications share one caching core (\texttt{cachecore.py}): the SEA gate (
     \toprule
     & OAT (topology optimisation) & DiffusionPDE (Navier--Stokes) \\
     \midrule
-    Denoiser & conditional U-Net (diffusers \texttt{UNet2DModel}, channels 320/640/1280/1280, attention at low resolution) + problem encoder & EDM DDPM++ U-Net (SongUNet), 2 channels $(a,u)$ \\
+    Denoiser & conditional U-Net (diffusers \texttt{UNet2DModel}, channels 320/640/1280/1280) + problem encoder & EDM DDPM++ U-Net (SongUNet), 2 channels $(a,u)$ \\
     Sample & $1\times64\times64$ latent of a neural-field autoencoder & $2\times128\times128$ field \\
-    Sampler & DDIM, $v$-prediction, cosine schedule, zero terminal SNR & EDM Heun, 2000 steps, $\sigma\in[0.002,80]$, $\rho=7$, guided \\
+    Sampler & 20 DDIM steps, $v$-prediction, zero terminal SNR, CFG $g=2$ & EDM Heun, 2000 steps, $\sigma\in[0.002,80]$, $\rho=7$, gradient guidance \\
+    Network calls (uncached) & $20\times2 = 40$ per sample & $2\times1999+1 = 3999$ per solution (each with a backward pass) \\
     $\Emb$ / $\Out$ & input conv / GN--SiLU--conv & input conv + first block / GN--SiLU--conv \\
     $h^{\mathrm{in}}, h^{\mathrm{out}}$ & 320 channels, $64\times64$ & 256 channels, $128\times128$ \\
-    Gate input & first ResNet block, conv + embedding & first block of $F$, normalised + embedding \\
-    SEA coefficients & $(\sqrt{\bar\alpha_t},\sqrt{1-\bar\alpha_t})$, $\beta=2$ & $(1,\sigma)$, $\beta=2$ \\
-    PCGS replay & scheduler \texttt{step} (affine in $v$) & full guided Heun step, two streams \\
+    Streams & conditional, unconditional & first and second Heun call \\
+    SEA coefficients & $(\sqrt{\bar\alpha_t},\sqrt{1-\bar\alpha_t})$, $\beta=2$ & $(1,\sigma)$ up to scale, $\beta=2$ \\
+    PCGS replay & scheduler \texttt{step} on the guided output & full guided Heun step \\
     \bottomrule
   \end{tabularx}
 \end{table}
+
+\subsection{Validation}\label{sec:app-validation}
+Before producing any result, both cached samplers were checked against exact invariants, in the spirit of the KalSea release (\cref{sec:kalsea-impl}):
+\begin{itemize}
+  \item \textbf{OAT.} The split $\Out(F(\Emb(x)))$ is bitwise identical to the original \texttt{CTOPUNet} forward; with caching disabled, our sampling loop (20 DDIM steps, guidance 2.0) reproduces the decoded structures of OAT's own \texttt{OATPipeline.inference} bitwise; and with $\delta=0$ (nothing skipped) both ReSPect and KalSea reproduce the uncached latents bitwise. OAT's evaluation script, run on the SIMP ground-truth structures, returns a compliance error of 0\% and a pass rate of 100\%.
+  \item \textbf{DiffusionPDE.} The split is bitwise identical to the original \texttt{EDMPrecond} denoiser at $\sigma\in\{80,1,0.01\}$; with $\delta=0$, KalSea reproduces the uncached guided sampler bitwise; with an arbitrarily large $\delta$ (only the first and last steps computed), PCGS corrects the single remaining gap and the result stays finite.
+\end{itemize}
 
 %% ------------------------------------------------------------------------------------------------
 \section{Application I: structural topology optimisation with OAT}\label{sec:app-oat}
@@ -79,49 +84,44 @@ Given a design domain $\Omega$ discretised into finite elements, a set of suppor
 where $\mathbf K(\bm\rho)$ is the global stiffness matrix assembled with the SIMP interpolation $E(\rho_e) = E_{\min}+\rho_e^p(E_0-E_{\min})$ \citep{bendsoe1988generating,sigmund2001,andreassen2011efficient}. Classical solvers need a finite-element analysis in each of tens to hundreds of iterations. OAT replaces the iterations by a single generative pass that predicts a near-optimal layout directly from the problem description.
 
 \subsection{The OAT model}
-OAT \citep{nobari2025oat} consists of a resolution- and shape-agnostic \emph{neural-field autoencoder} (NFAE), whose implicit decoder renders a density field at any resolution and aspect ratio, and a \emph{conditional latent diffusion model} trained on OpenTO, a dataset of 2.2 million optimised structures. The diffusion model (\texttt{OpenTO/LDM}) is a diffusers U-Net on a $1\times64\times64$ latent with block widths 320, 640, 1280 and 1280, attention in the two lowest-resolution levels, and a \emph{problem encoder} that embeds the boundary conditions and loads (as point sets) and the global problem descriptors such as the domain shape and the target volume fraction; the problem embedding is added to the timestep embedding. The released sampler is DDIM with $v$-prediction on a cosine schedule rescaled to zero terminal SNR \citep{lin2024zerosnr} with trailing timestep spacing. The decoded density field is evaluated by a GPU finite-element solver shipped with the code.
+OAT \citep{nobari2025oat} consists of a resolution- and shape-agnostic \emph{neural-field autoencoder} (NFAE), whose implicit decoder renders a density field at any resolution and aspect ratio, and a \emph{conditional latent diffusion model} trained on OpenTO, a dataset of 2.2 million optimised structures. The diffusion model (\texttt{OpenTO/LDM}) is a diffusers U-Net on a $1\times64\times64$ latent with block widths 320, 640, 1280 and 1280, attention in the two lowest-resolution levels, and a \emph{problem encoder} that embeds the boundary conditions and loads (as point sets) and global problem descriptors such as the target volume fraction; the problem embedding is added to the timestep embedding. The released sampler is DDIM with $v$-prediction on a cosine schedule rescaled to zero terminal SNR \citep{lin2024zerosnr}. The decoded density field is evaluated by a GPU finite-element solver (pyEDGE) shipped with the code.
 
 \subsection{Experimental protocol}
+We follow the protocol of the OAT paper for its fully general OpenTO benchmark (its Table~4) exactly:
 \begin{itemize}
-  \item \textbf{Problems.} Problems from the OpenTO test split, each with a SIMP-optimised ground-truth structure. The worked examples use the first one or two test problems; the full evaluation uses the whole test split.
-  \item \textbf{Reference.} OAT with 50 deterministic DDIM steps and the same initial noise for every method, so that every cached sample has a uniquely defined uncached counterpart.
-  \item \textbf{Methods.} Fewer DDIM steps (matched NFE), SeaCache (SEA gate + reuse), ReSPect, KalSea w/o PCGS and KalSea, with $\delta$ swept so that the budgets of the cached methods match the fewer-step baselines.
-  \item \textbf{Engineering metrics.} The compliance error with respect to the SIMP ground truth, $\mathrm{CE} = (C - C_{\mathrm{SIMP}})/C_{\mathrm{SIMP}}\times100\%$, computed by the same finite-element solver as in OAT's evaluation, and the volume-fraction error $\mathrm{VFE} = (V - V^\star)/V^\star\times 100\%$, with $V$ the fraction of elements with density above 0.5.
-  \item \textbf{Fidelity metrics.} The mean absolute difference of the decoded density field from the 50-step reference, and the intersection-over-union (IoU) of the thresholded structures.
-  \item \textbf{Cost.} NFE (block-stack evaluations) and wall-clock latency per structure on one NVIDIA B200.
+  \item \textbf{Problems.} The complete OpenTO test split, 5000 problems with arbitrary domains, aspect ratios, resolutions, loads, supports and volume fractions, each with a SIMP-optimised ground truth.
+  \item \textbf{Sampler.} 20 deterministic DDIM steps with classifier-free guidance $g=2.0$, 10 samples per problem (50{,}000 structures per configuration). The 10 samples of a problem form one batch and share one gate schedule.
+  \item \textbf{Metrics.} Computed with OAT's own evaluation script (\texttt{RunComplianceTest.py}, run unchanged): the compliance error $\mathrm{CE} = (C - C_{\mathrm{SIMP}})/C_{\mathrm{SIMP}}\times100\%$ from a finite-element analysis of the generated density field, the volume-fraction error VFE, and the \emph{failure rate}, the fraction of samples with $\mathrm{CE}>100\%$. CE$^*$ and VFE$^*$ are averaged over non-failed samples, and the median CE$^*$ is reported because the mean is dominated by a few outliers.
+  \item \textbf{Methods and budgets.} ReSPect and KalSea at $\delta=0.15$ (about 14 of 20 steps computed) and $\delta=0.3$ (10 of 20 steps computed, i.e.\ half the U-Net evaluations). The row of the original OAT is copied from its paper.
 \end{itemize}
-The compliance error is the decisive metric: a cache is useful for design only if the structures it produces are as stiff as those of the uncached sampler.
 
 \subsection{Results}
-\Cref{tab:app-oat} will report the full evaluation and \cref{fig:app-oat-example} the worked examples.
+\Cref{tab:app-oat} reports the full evaluation and \cref{fig:app-oat-example} shows the first two test problems.
 
 \begin{table}[t]
   \centering
   \small
-  \caption[Caching OAT: results]{Topology optimisation with OAT (OpenTO test split). CE: compliance error w.r.t.\ SIMP (median); VFE: volume-fraction error; MAE and IoU w.r.t.\ the 50-step DDIM reference. Entries marked \TBD\ will be filled in from the full run.}
+  \caption[Caching OAT: results on the OpenTO test split]{Topology optimisation with OAT on the full OpenTO test split (5000 problems, 10 samples each, 20 DDIM steps, guidance 2.0). Evals: U-Net evaluations per sample (two per computed step). $^\dagger$Copied from the OAT paper \citep[Table~4]{nobari2025oat} (not re-run). CE$^*$, VFE$^*$: over non-failed samples; failure: CE $>100\%$.}
   \label{tab:app-oat}
-  \begin{tabular}{@{}lcccccc@{}}
+  \begin{tabular}{@{}lccccc@{}}
     \toprule
-    Method & NFE & Latency (s) & CE (\%)$\downarrow$ & VFE (\%) & MAE$\downarrow$ & IoU$\uparrow$ \\
+    Method & Evals & Failure (\%)$\downarrow$ & CE$^*$ (\%)$\downarrow$ & Median CE$^*$ (\%)$\downarrow$ & VFE$^*$ (\%) \\
     \midrule
-    Reference (50 DDIM steps) & 50 & \TBD & \TBD & \TBD & -- & -- \\
+    OAT (uncached)$^\dagger$ & 40 & 39.22 & 8.17 & 3.75 & $-0.12$ \\
     \midrule
-    Fewer steps & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
-    SeaCache (reuse) & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
-    ReSPect & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
-    KalSea w/o PCGS & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
-    KalSea & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
+    ReSPect ($\delta=0.15$) & \TBD & \TBD & \TBD & \TBD & \TBD \\
+    KalSea ($\delta=0.15$) & \TBD & \TBD & \TBD & \TBD & \TBD \\
+    \midrule
+    ReSPect ($\delta=0.3$) & \TBD & \TBD & \TBD & \TBD & \TBD \\
+    KalSea ($\delta=0.3$) & \TBD & \TBD & \TBD & \TBD & \TBD \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 \begin{figure}[t]
   \centering
-  \fbox{\parbox[c][5.5cm][c]{0.9\textwidth}{\centering\small
-  \textbf{Placeholder: worked example(s), OpenTO test problem(s) 0 (and 1).}\\[4pt]
-  Row 1: boundary conditions and loads; SIMP ground truth; 50-step DDIM reference.\\
-  Row 2: fewer steps / SeaCache / ReSPect / KalSea at matched NFE, each annotated with NFE, compliance error and IoU.}}
-  \caption[Caching OAT: worked example]{Worked example of caching OAT (to be generated by \texttt{oat\_cache.py}).}
+  \fbox{\parbox[c][5.5cm][c]{0.9\textwidth}{\centering\small\TBD\ (figure generated after the evaluation)}}
+  \caption[Caching OAT: worked examples]{Worked examples: OpenTO test problems 0 and 1.}
   \label{fig:app-oat-example}
 \end{figure}
 
@@ -129,72 +129,79 @@ The compliance error is the decisive metric: a cache is useful for design only i
 \section{Application II: flow past a cylinder with DiffusionPDE}\label{sec:app-pde}
 
 \subsection{Problem}
-Many fluid-mechanics problems are \emph{partially observed}: a few sensors measure the flow, and the full field is needed. DiffusionPDE \citep{huang2024diffusionpde} learns the joint distribution of a pair of fields $(a,u)$, for instance an earlier and a later state of a flow, with a diffusion model, and solves forward problems (observe $a$ sparsely, recover $u$), inverse problems (observe $u$, recover $a$) or both. For the bounded Navier--Stokes case used here, $a$ and $u$ are velocity-magnitude fields of the flow around a cylinder at two time instants on a $128\times128$ grid. In the forward problem, 1\% of the grid points of $a$ are observed at random together with the known cylinder region, and $u$ is to be recovered.
+Many fluid-mechanics problems are \emph{partially observed}: a few sensors measure the flow, and the full field is needed. DiffusionPDE \citep{huang2024diffusionpde} learns the joint distribution of a pair of fields $(a,u)$, an earlier and a later state of a flow, with a diffusion model, and solves \emph{forward} problems (observe $a$ sparsely, recover $u$) and \emph{inverse} problems (observe $u$ sparsely, recover $a$). For the bounded Navier--Stokes case used here, $a$ and $u$ are velocity-magnitude fields of the flow past a cylinder at two time instants on a $128\times128$ grid; 1\% of the grid points of the observed field are known at random, together with the cylinder region.
 
 \subsection{The DiffusionPDE sampler}
-The model is an EDM \citep{karras2022edm} DDPM++ U-Net trained on the joint two-channel field. Sampling uses 2000 Heun steps on the EDM schedule ($\sigma_{\max}=80$, $\sigma_{\min}=0.002$, $\rho=7$). After each step the latent is moved along the negative gradients of the observation losses on $a$ and $u$ and, during the last 20\% of the steps, of a finite-difference PDE residual, with weights $\zeta$ from the released configuration; the gradients are taken with respect to the current latent through the network, in the manner of diffusion posterior sampling \citep{chung2023dps}. Each step therefore costs two forward and two backward passes through the U-Net, about 8000 network passes per solution, which makes sampling the dominant cost of the method.
+The model is an EDM \citep{karras2022edm} DDPM++ U-Net trained on the joint two-channel field. Sampling uses 2000 Heun steps on the EDM schedule ($\sigma_{\max}=80$, $\sigma_{\min}=0.002$, $\rho=7$). After each step the latent is moved along the negative gradients of the observation losses and, during the last 20\% of the steps, of a finite-difference PDE residual, with the weights $\zeta$ of the released configuration; the gradients are taken with respect to the current latent through the network, in the manner of diffusion posterior sampling \citep{chung2023dps}. Each solution therefore costs 3999 network calls, each with a backward pass.
 
 \subsection{Experimental protocol}
 \begin{itemize}
-  \item \textbf{Cases.} The two bounded Navier--Stokes test cases released with DiffusionPDE (one worked example each); the full evaluation will add the remaining test problems of the other PDEs (Darcy flow, Poisson, Helmholtz) with the same harness.
-  \item \textbf{Reference.} The released sampler (2000 guided Heun steps) with a fixed seed.
-  \item \textbf{Methods.} SeaCache, ReSPect, KalSea w/o PCGS and KalSea, with $\delta$ swept to cover a range of budgets; with 2000 highly redundant steps, the gate is expected to skip a large fraction of them, which is exactly the regime in which reuse degrades and forecasting and correction matter (\cref{ch:respect,ch:kalsea}).
-  \item \textbf{Engineering metrics.} The relative $L^2$ error of the recovered fields with respect to the simulated ground truth, $\|u-u_{\mathrm{GT}}\|_2/\|u_{\mathrm{GT}}\|_2$ (and likewise for $a$), as reported by DiffusionPDE, and the PDE residual of the result.
-  \item \textbf{Fidelity and cost.} The relative difference from the uncached reference solution, NFE (forward and backward block-stack passes) and wall-clock time per solution.
+  \item \textbf{Cases.} The two bounded Navier--Stokes test cases released with DiffusionPDE, each solved as a forward and as an inverse problem, with the released configurations (2000 steps, seed 0, $\zeta_{\mathrm{obs}}=0.5$, $\zeta_{\mathrm{pde}}=1$).
+  \item \textbf{Metric.} The relative $L^2$ error of the recovered field with respect to the simulated ground truth, $\|u-u_{\mathrm{GT}}\|_2/\|u_{\mathrm{GT}}\|_2$ for the forward problem (and of $a$ for the inverse problem), as computed by the released scripts.
+  \item \textbf{Methods and budgets.} ReSPect and KalSea at $\delta=0.01$ and $\delta=0.02$. A calibration run on forward case 1 showed that the error grows quickly for larger thresholds (KalSea: 10.1\% at $\delta=0.03$, 12.2\% at $0.1$, 24.6\% at $0.3$, with 1041, 499 and 181 network calls).
+  \item \textbf{Reference.} The error of the uncached sampler is copied from the DiffusionPDE paper: $3.9\pm0.2\%$ (forward) and $2.7\pm0.2\%$ (inverse), averaged over 1000 test scenes \citep{huang2024diffusionpde}. Only two of these scenes are released, so the comparison of our two cases with the paper's mean is indicative only.
 \end{itemize}
 
 \subsection{Results}
+\Cref{tab:app-pde} summarises the 16 cached solutions. With KalSea at $\delta=0.01$, the number of network calls drops from 3999 to about 2300 ($1.7\times$ fewer), and at $\delta=0.02$ to about 1550 ($2.6\times$ fewer). On the forward problem of case 1, KalSea recovers the flow with 3.3\% error at both budgets, below the paper's mean of 3.9\% for the uncached sampler, and on the inverse problem it stays at 3.6--5.2\% for both cases. ReSPect, at the same thresholds (and within 3\% of the same number of network calls), is worse in every one of the eight comparisons, most clearly on the forward problem (9.2--16.8\% vs.\ 3.3--14.6\%). Unlike on the media models, where ReSPect's open-loop forecast was competitive, here the closed loop is essential: the gradient guidance on skipped steps is approximate, and KalSea's corrector re-integrates every gap with the full guided update, repairing the drift that both the forecast and the approximate guidance introduce. The hardest setting is forward case 2 at $\delta=0.02$, where KalSea's error rises to 14.6\%; the budget at which caching is safe therefore depends on the case, which motivates a gate that also accounts for the guidance (\cref{ch:conclusion}). \Cref{fig:app-pde-forward,fig:app-pde-inverse} show the recovered fields and their errors.
 
 \begin{table}[t]
   \centering
   \small
-  \caption[Caching DiffusionPDE: results]{Bounded Navier--Stokes forward problem with DiffusionPDE. Evals: block-stack evaluations. Errors are relative $L^2$ errors w.r.t.\ the ground truth; ``vs.\ ref.'' is the relative difference from the uncached 2000-step solution. Entries marked \TBD\ will be filled in from the runs.}
+  \caption[Caching DiffusionPDE: results]{Bounded Navier--Stokes (flow past a cylinder) with DiffusionPDE, 1\% observations. Calls: network evaluations per solution (mean of the two cases; uncached: 3999). Errors: relative $L^2$ error of the recovered field w.r.t.\ the simulation. $^\dagger$Copied from the DiffusionPDE paper (mean $\pm$ std over 1000 scenes; not re-run).}
   \label{tab:app-pde}
-  \begin{tabular}{@{}lccccc@{}}
+  \begin{tabular}{@{}llcccccc@{}}
     \toprule
-    Method & Evals & Time (s) & Err.\ $u$ (\%)$\downarrow$ & Err.\ $a$ (\%)$\downarrow$ & vs.\ ref.\ (\%)$\downarrow$ \\
+    & & \multicolumn{3}{c}{Forward (recover $u$)} & \multicolumn{3}{c}{Inverse (recover $a$)} \\
+    \cmidrule(lr){3-5}\cmidrule(l){6-8}
+    Method & $\delta$ & Calls & Case 1 & Case 2 & Calls & Case 1 & Case 2 \\
     \midrule
-    Reference (2000 Heun steps) & 3999 & \TBD & \TBD & \TBD & -- \\
+    DiffusionPDE (uncached)$^\dagger$ & -- & 3999 & \multicolumn{2}{c}{$3.9\pm0.2\%$} & 3999 & \multicolumn{2}{c}{$2.7\pm0.2\%$} \\
     \midrule
-    SeaCache (reuse) & \TBD & \TBD & \TBD & \TBD & \TBD \\
-    ReSPect & \TBD & \TBD & \TBD & \TBD & \TBD \\
-    KalSea w/o PCGS & \TBD & \TBD & \TBD & \TBD & \TBD \\
-    KalSea & \TBD & \TBD & \TBD & \TBD & \TBD \\
+    ReSPect & 0.01 & 2301 & 9.24\% & 13.34\% & 2277 & 5.78\% & 6.88\% \\
+    KalSea  & 0.01 & 2360 & \textbf{3.32\%} & \textbf{7.02\%} & 2265 & \textbf{5.21\%} & \textbf{5.23\%} \\
+    \midrule
+    ReSPect & 0.02 & 1503 & 16.81\% & 16.35\% & 1522 & 8.17\% & 8.59\% \\
+    KalSea  & 0.02 & 1552 & \textbf{3.25\%} & \textbf{14.58\%} & 1533 & \textbf{4.98\%} & \textbf{3.59\%} \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 \begin{figure}[t]
   \centering
-  \fbox{\parbox[c][5.5cm][c]{0.9\textwidth}{\centering\small
-  \textbf{Placeholder: worked example, bounded Navier--Stokes test case 1.}\\[4pt]
-  Ground-truth fields $a$ and $u$ with the sensor locations and the cylinder; the reference solution;\\
-  the solutions of SeaCache, ReSPect and KalSea with their error maps, NFE and solve time.}}
-  \caption[Caching DiffusionPDE: worked example]{Worked example of caching DiffusionPDE (to be generated by \texttt{pde\_cache.py}).}
-  \label{fig:app-pde-example}
+  \includegraphics[width=\textwidth]{app_pde_forward_case1.pdf}
+  \caption[Caching DiffusionPDE: forward problem, case 1]{Forward problem, case 1: from 1\% observations of the earlier velocity field $a$ (white dots) and the cylinder, the later field $u$ is recovered. Top: ground truth and the solutions of KalSea and ReSPect at $\delta=0.01$ and $0.02$ with their network calls and errors; bottom: absolute error maps (same colour scale). ReSPect's errors concentrate in the wake of the cylinder.}
+  \label{fig:app-pde-forward}
 \end{figure}
 
-\Cref{tab:app-pde} and \cref{fig:app-pde-example} will report the results. The reference row's 3999 block-stack evaluations follow from the sampler (two calls in each of the first 1999 steps and one in the last), each paired with a backward pass for the guidance.
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth]{app_pde_inverse_case2.pdf}
+  \caption[Caching DiffusionPDE: inverse problem, case 2]{Inverse problem, case 2: from 1\% observations of the later field $u$, the earlier field $a$ is recovered; layout as in \cref{fig:app-pde-forward}.}
+  \label{fig:app-pde-inverse}
+\end{figure}
+
+\paragraph{Wall-clock time.} The cached runs were executed concurrently with the OAT runs on shared GPUs, so their wall-clock times (185--248\,s per solution) are not a clean measurement and are not compared with the paper's timing (140\,s on an A40). The saving in network calls carries over to forward and backward passes alike, but a skipped step still evaluates $\Emb$ (which includes one full-resolution block), $\Out$ and their gradients, so the time saved is smaller than the reduction in calls.
 
 %% ------------------------------------------------------------------------------------------------
-\section{Status and reproduction}\label{sec:app-status}
+\section{Reproduction}\label{sec:app-status}
 
-The caching core and both drivers are implemented and pass a syntax check; the pretrained weights (OAT: \texttt{OpenTO/NFAE} and \texttt{OpenTO/LDM} from Hugging Face; DiffusionPDE: the released pretrained models) and the test data (OpenTO test split; DiffusionPDE bounded Navier--Stokes test cases) have been downloaded. Running the drivers executes the third-party model code of the two projects (and, for DiffusionPDE, loads its pickled checkpoints), which requires explicit approval in the environment used for this project; the runs are therefore pending. The worked examples are produced by
+The pretrained weights (OAT: \texttt{OpenTO/NFAE} and \texttt{OpenTO/LDM} from Hugging Face; DiffusionPDE: the released pretrained models) and the test data (OpenTO test split; DiffusionPDE bounded Navier--Stokes cases) are those released by the authors. The runs are reproduced by
 \begin{lstlisting}[language=bash,numbers=none]
-# Application I: OAT, test problems 0 and 1, 50-step DDIM reference
-python oat_cache.py --indices 0,1 --seeds 0 --steps 50 \
-    --deltas 0.1,0.2,0.3 --fewer 25,15,10
-# Application II: DiffusionPDE, bounded Navier-Stokes test case 1
-python pde_cache.py --case 1 --steps 2000 --deltas 0.05,0.1
+# Application I: OAT, full OpenTO test split, one shard per GPU (g = 0..7)
+python oat_cache.py --method kalsea --delta 0.3 --steps 20 --guidance 2.0 \
+    --n_samples 10 --shard $g --num_shards 8 --out results/oat
+python eval_oat.py --method kalsea --delta 0.3     # OAT's RunComplianceTest.py
+# Application II: DiffusionPDE, bounded Navier-Stokes
+python pde_cache.py --case 1 --problem forward --steps 2000 \
+    --methods respect,kalsea --deltas 0.01,0.02
 \end{lstlisting}
-and the full evaluation distributes the test problems over eight GPUs, one process per GPU. Before the full run, the drivers will be validated with the same invariants as the KalSea release (\cref{sec:kalsea-impl}): with $\delta=0$ every output must equal the uncached reference, and with the innovation forced to zero, KalSea must reproduce KalSea w/o PCGS.
 
 %% ------------------------------------------------------------------------------------------------
 \section{Discussion}\label{sec:app-discussion}
 
-The two applications pose questions that the media benchmarks did not.
 \begin{itemize}
-  \item \textbf{Short versus long schedules.} OAT is designed for few-step sampling, so the room for skipping is limited, and the fewer-steps baseline is strong. DiffusionPDE, at the other extreme, takes 2000 small steps whose consecutive network outputs are highly redundant. Together they bracket the regimes in which caching may or may not pay off.
-  \item \textbf{Physics-based acceptance criteria.} For engineering use, a cached sample is acceptable only if its physical performance (compliance, PDE residual, error with respect to the simulation) is preserved, not merely its visual similarity. The protocols above therefore report engineering metrics alongside fidelity to the reference.
-  \item \textbf{Guidance under caching.} In DiffusionPDE the guidance gradients on skipped steps bypass the block stack. KalSea's correction re-integrates the gap with the full guided update and the smoothed residuals, so it also corrects the latent drift that the approximate gradients cause; whether this suffices is one of the questions the runs will answer.
+  \item \textbf{Short versus long schedules.} OAT is designed for few-step sampling, so the room for skipping is limited to a few of its 20 steps. DiffusionPDE, at the other extreme, takes 2000 small guided steps; there the gate skips about 40--60\% of the network calls. Together the two applications bracket the regimes in which caching is used.
+  \item \textbf{Physics-based acceptance.} For engineering use, a cached sample is acceptable only if its physical performance is preserved. Both studies therefore report engineering metrics, compliance from a finite-element analysis and the error with respect to a flow simulation, rather than visual similarity alone.
+  \item \textbf{Open versus closed loop under guidance.} The DiffusionPDE results give the clearest evidence in this report for the benefit of the corrector: when guidance gradients are approximated on skipped steps, an open-loop forecast lets the error accumulate, while KalSea's re-integration of every gap keeps the solution close to the observations and the PDE.
 \end{itemize}
