@@ -13,7 +13,13 @@ FIG = os.path.expanduser("~/BTP/thesis/figures")
 plt.rcParams.update({"font.size": 8, "font.family": "serif"})
 
 
-def oat_examples(problems=(0, 1), configs=(("respect", 0.15), ("kalsea", 0.15), ("respect", 0.3), ("kalsea", 0.3))):
+def oat_examples(problems=(0, 1), configs=(("respect", 0.15), ("kalsea", 0.15), ("respect", 0.3), ("kalsea", 0.3)), out="app_oat_examples.pdf"):
+    """Problem set-up, SIMP ground truth and the first of the ten samples of each cached configuration.
+
+    Coordinates follow OAT's RunComplianceTest.py: the mesh has shape (H, W) = topology.size[::-1], the first
+    coordinate of a load / support runs along the rows (length H / max(H, W)), the second along the columns.
+    """
+    import json
     from datasets import load_dataset
     from oat_cache import TEST_PARQUET
     data = load_dataset("parquet", data_files={"test": TEST_PARQUET})["test"]
@@ -21,40 +27,56 @@ def oat_examples(problems=(0, 1), configs=(("respect", 0.15), ("kalsea", 0.15), 
     for m, d in configs:
         g = pickle.load(open(os.path.join(RES, "oat", f"GeneratedSamples_{m}_d{d:g}.pkl"), "rb"))
         gens[(m, d)] = {p: g[p] for p in problems}
-        c = pickle.load(open(os.path.join(RES, "oat", f"Compliance_{m}_d{d:g}.pkl"), "rb"))
-        ces[(m, d)] = c["CEs"]
-        import json
+        f = os.path.join(RES, "oat", f"Compliance_{m}_d{d:g}.pkl")
+        ces[(m, d)] = pickle.load(open(f, "rb"))["CEs"] if os.path.exists(f) else None
         for f in glob.glob(os.path.join(RES, "oat", f"{m}_d{d:g}_shard*.json")):
             for r in json.load(open(f))["records"]:
                 if r["idx"] in problems:
                     nfe[(m, d, r["idx"])] = r["nfe"]
     ncol = 2 + len(configs)
-    fig, axes = plt.subplots(len(problems), ncol, figsize=(1.75 * ncol, 1.9 * len(problems)))
+    widths = []
+    for p in problems:
+        W, H = data[p]["topology"].size
+        widths.append(W / H)
+    fig, axes = plt.subplots(len(problems), ncol, figsize=(7.2, 1.45 * len(problems) + 0.4),
+                             gridspec_kw={"wspace": 0.1, "hspace": 0.05})
     axes = np.atleast_2d(axes)
     for r, p in enumerate(problems):
         s = data[p]
         gt = np.array(s["topology"]).astype(float)
         H, W = gt.shape
+        L = max(H, W)
+        ld = np.array(s["loads"]); bc = np.array(s["boundary conditions"])
         ax = axes[r, 0]
         ax.imshow(np.zeros_like(gt), cmap="gray_r", vmin=0, vmax=1)
-        bc = np.array(s["boundary conditions"]); ld = np.array(s["loads"])
+        ax.add_patch(plt.Rectangle((-0.5, -0.5), W, H, fill=False, ec=INK2, lw=0.6))
         if bc.size:
-            ax.scatter(bc[:, 0] * max(H, W), bc[:, 1] * max(H, W), s=2, c="tab:blue", marker="s", label="supports")
+            ax.scatter(bc[:, 1] * L, bc[:, 0] * L, s=16, c=INK, marker="^", zorder=3, clip_on=False)
         if ld.size:
-            ax.quiver(ld[:, 0] * max(H, W), ld[:, 1] * max(H, W), ld[:, 2], -ld[:, 3], color="tab:red", scale=8, width=0.012)
-        ax.set_title(f"problem {p}: BCs / loads\nVF = {s['volume fraction']:.2f}")
+            F = ld[:, 2:]
+            n = np.linalg.norm(F, axis=1).max()
+            k = 0.18 * L / n if n > 0 else 0
+            ax.quiver(ld[:, 1] * L, ld[:, 0] * L, F[:, 1] * k, F[:, 0] * k, angles="xy", scale_units="xy", scale=1,
+                      color="#e34948", width=0.012 if len(ld) < 10 else 0.005, zorder=4)
+        ax.set_xlim(-0.08 * W, 1.08 * W); ax.set_ylim(1.08 * H, -0.08 * H)
+        ax.set_title(f"problem {p}: set-up\n$V^\\star$ = {s['volume fraction']:.2f}\n{W}$\\times${H} grid", fontsize=7)
         axes[r, 1].imshow(gt, cmap="gray_r", vmin=0, vmax=1)
-        axes[r, 1].set_title("SIMP ground truth")
+        axes[r, 1].set_title("SIMP\n(ground truth)\n", fontsize=7)
         for c, (m, d) in enumerate(configs):
-            x = gens[(m, d)][p][0].squeeze().numpy()
+            x = gens[(m, d)][p][0].squeeze().float().numpy()
             axes[r, 2 + c].imshow(x, cmap="gray_r", vmin=0, vmax=1)
             name = "ReSPect" if m == "respect" else "KalSea"
-            axes[r, 2 + c].set_title(f"{name}, {nfe.get((m, d, p), '?')}/20 NFE\nCE = {ces[(m, d)][p, 0]:.2f}%")
+            ce = f"{ces[(m, d)][p, 0]:.1f}%" if ces[(m, d)] is not None else "pending"
+            axes[r, 2 + c].set_title(f"{name}, $\\delta$={d:g}\n{nfe.get((m, d, p), '?')}/20 steps\nCE {ce}", fontsize=7)
     for ax in axes.ravel():
         ax.set_xticks([]); ax.set_yticks([])
-    fig.tight_layout()
-    fig.savefig(os.path.join(FIG, "app_oat_examples.pdf"), bbox_inches="tight")
-    print("saved app_oat_examples.pdf")
+        for sp in ax.spines.values():
+            sp.set_color("#c3c2b7"); sp.set_linewidth(0.5)
+    for ax in axes[:, 0]:
+        for sp in ax.spines.values():
+            sp.set_visible(False)
+    fig.savefig(os.path.join(FIG, out), bbox_inches="tight")
+    print("saved", out)
 
 
 def pde_examples(problem="forward", case=1, configs=(("respect",), ("kalsea",))):
