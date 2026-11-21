@@ -15,6 +15,7 @@ Taken together, the project shows that the two decisions of a cache should be de
 \section{Future work}
 
 \begin{itemize}
+  \item \textbf{Text-to-CAD generation.} We were preparing to apply ReSPect and KalSea to text-to-CAD, i.e.\ to a diffusion model that generates CAD models from a text description, the design task closest to the text-to-image setting in which both caches were developed (\cref{sec:lit-mech}). This first required training a text-conditioned CAD diffusion model, and the training could not be completed before the submission deadline, so this application is not part of this report. Completing the training and evaluating both caches on it is the most immediate next step.
   \item \textbf{Extend the engineering evaluation.} Evaluate DiffusionPDE on all 1000 test scenes of each PDE (Darcy, Poisson, Helmholtz, Navier--Stokes) as the scenes become available, and measure clean wall-clock speedups on dedicated GPUs.
   \item \textbf{Few-step samplers.} On OAT, KalSea lost material over four-step gaps of a 20-step sampler. Running it without PCGS would show whether the trend forecast or the first-order correction is responsible; a cap on the gap length, or a correction that also restores the volume fraction, are simple remedies to test.
   \item \textbf{Guidance-aware gating.} On DiffusionPDE the safe skipping budget depended on the case; a gate that also measures the change of the guidance signal could choose it automatically.
